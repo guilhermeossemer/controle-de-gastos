@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Gastos - 50/30/20</title>
+    <meta name="description" content="Aplicação para controle de gastos pessoais usando o método 50/30/20">
+    <meta name="theme-color" content="#667eea">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Favicon -->
+    <link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
+    <link rel="shortcut icon" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <meta name="msapplication-TileImage" content="favicon.png">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        // Verificar e carregar bibliotecas
+        window.addEventListener('load', function () {
+            console.log('🔄 Verificando bibliotecas...');
+
+            // Verificar Chart.js
+            if (typeof window.Chart === 'undefined') {
+                console.error('❌ Chart.js não foi carregado corretamente');
+            } else {
+                console.log('✅ Chart.js carregado com sucesso');
+            }
+
+            // Verificar jsPDF com retry
+            setTimeout(() => {
+                if (typeof window.jsPDF === 'undefined') {
+                    console.warn('⚠️ jsPDF não carregado, tentando novamente...');
+
+                    // Tentar carregar novamente
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+                    script.onload = () => {
+                        console.log('✅ jsPDF carregado na segunda tentativa');
+
+                        // Carregar plugin autotable
+                        const pluginScript = document.createElement('script');
+                        pluginScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js';
+                        pluginScript.onload = () => console.log('✅ Plugin autotable carregado');
+                        document.head.appendChild(pluginScript);
+                    };
+                    script.onerror = () => console.error('❌ Falha ao recarregar jsPDF');
+                    document.head.appendChild(script);
+                } else {
+                    console.log('✅ jsPDF carregado com sucesso');
+                }
+            }, 1000);
+        });
+    </script>
+    <link rel="apple-touch-icon"
+        href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjQiIGZpbGw9InVybCgjZ3JhZGllbnQwX2xpbmVhcl8xXzEpIi8+CjxwYXRoIGQ9Ik05NiA0OEM3My45MDg2IDQ4IDU2IDY1LjkwODYgNTYgODhWMTQ0QzU2IDE2Ni4wOTEgNzMuOTA4NiAxODQgOTYgMTg0QzExOC4wOTEgMTg0IDEzNiAxNjYuMDkxIDEzNiAxNDRWODhDMTM2IDY1LjkwODYgMTE4LjA5MSA0OCA5NiA0OFoiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuOSIvPgo8cGF0aCBkPSJNODggNzJIMTA0VjEyMEg4OFY3MloiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik03MiA5NkgxMjBWMTEySDcyVjk2WiIgZmlsbD0id2hpdGUiLz4KPGRlZnM+CjxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZGllbnQwX2xpbmVhcl8xXzEiIHgxPSIwIiB5MT0iMCIgeDI9IjE5MiIgeTI9IjE5MiIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgo8c3RvcCBzdG9wLWNvbG9yPSIjNjY3ZWVhIi8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzc2NGJhMiIvPgo8L2xpbmVhckdyYWRpZW50Pgo8L2RlZnM+Cjwvc3ZnPgo=">
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+</head>
+
+<body>
+    <!-- Tela de Autenticação -->
+    <div id="auth-container" class="auth-container">
+        <div class="auth-wrapper">
+            <div class="auth-box">
+                <!-- Logo e Título -->
+                <div class="auth-header">
+                    <div class="auth-logo">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <h1 class="auth-title">Controle de Gastos</h1>
+                    <p class="auth-subtitle">Gestão Financeira Inteligente</p>
+                </div>
+
+                <!-- Formulário de Login -->
+                <div id="login-form" class="auth-form">
+                    <h2 class="form-title">Entrar na sua conta</h2>
+
+                    <div class="form-group">
+                        <label for="login-email">
+                            <i class="fas fa-envelope"></i> Email
+                        </label>
+                        <input type="email" id="login-email" placeholder="seu@email.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="login-password">
+                            <i class="fas fa-lock"></i> Senha
+                        </label>
+                        <input type="password" id="login-password" placeholder="••••••••" required>
+                    </div>
+
+                    <button class="btn-auth btn-primary" onclick="handleLogin()">
+                        <i class="fas fa-sign-in-alt"></i> Entrar
+                    </button>
+
+                    <div class="auth-links">
+                        <a href="#" onclick="showForgotPassword()">Esqueci minha senha</a>
+                        <a href="#" onclick="showRegister()">Criar nova conta</a>
+                    </div>
+
+                    <div id="login-error" class="auth-error" style="display: none;"></div>
+                </div>
+
+                <!-- Formulário de Registro -->
+                <div id="register-form" class="auth-form" style="display: none;">
+                    <h2 class="form-title">Criar nova conta</h2>
+
+                    <div class="form-group">
+                        <label for="register-name">
+                            <i class="fas fa-user"></i> Nome
+                        </label>
+                        <input type="text" id="register-name" placeholder="Seu nome completo" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="register-email">
+                            <i class="fas fa-envelope"></i> Email
+                        </label>
+                        <input type="email" id="register-email" placeholder="seu@email.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="register-password">
+                            <i class="fas fa-lock"></i> Senha
+                        </label>
+                        <input type="password" id="register-password" placeholder="Mínimo 6 caracteres" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="register-password-confirm">
+                            <i class="fas fa-lock"></i> Confirmar Senha
+                        </label>
+                        <input type="password" id="register-password-confirm" placeholder="Digite a senha novamente"
+                            required>
+                    </div>
+
+                    <button class="btn-auth btn-primary" onclick="handleRegister()">
+                        <i class="fas fa-user-plus"></i> Criar Conta
+                    </button>
+
+                    <div class="auth-links">
+                        <a href="#" onclick="showLogin()">Já tenho uma conta</a>
+                    </div>
+
+                    <div id="register-error" class="auth-error" style="display: none;"></div>
+                </div>
+
+                <!-- Formulário de Recuperação de Senha -->
+                <div id="forgot-password-form" class="auth-form" style="display: none;">
+                    <h2 class="form-title">Recuperar senha</h2>
+                    <p class="form-description">Digite seu email para receber instruções de recuperação.</p>
+
+                    <div class="form-group">
+                        <label for="forgot-email">
+                            <i class="fas fa-envelope"></i> Email
+                        </label>
+                        <input type="email" id="forgot-email" placeholder="seu@email.com" required>
+                    </div>
+
+                    <button class="btn-auth btn-primary" onclick="handleForgotPassword()">
+                        <i class="fas fa-paper-plane"></i> Enviar Email
+                    </button>
+
+                    <div class="auth-links">
+                        <a href="#" onclick="showLogin()">Voltar para login</a>
+                    </div>
+
+                    <div id="forgot-error" class="auth-error" style="display: none;"></div>
+                    <div id="forgot-success" class="auth-success" style="display: none;"></div>
+                </div>
+
+                <!-- Tela de Aguardando Verificação -->
+                <div id="verification-form" class="auth-form" style="display: none;">
+                    <h2 class="form-title">Verifique seu Email</h2>
+                    <p class="form-description">Enviamos um link de verificação para <strong
+                            id="verification-email"></strong></p>
+
+                    <div class="verification-steps">
+                        <div class="step">
+                            <i class="fas fa-envelope-open"></i>
+                            <span>Verifique sua caixa de entrada</span>
+                        </div>
+                        <div class="step">
+                            <i class="fas fa-mouse-pointer"></i>
+                            <span>Clique no link de verificação</span>
+                        </div>
+                        <div class="step">
+                            <i class="fas fa-sign-in-alt"></i>
+                            <span>Volte aqui e faça login</span>
+                        </div>
+                    </div>
+
+                    <button class="btn-auth btn-primary" onclick="showLogin()">
+                        <i class="fas fa-sign-in-alt"></i> Fazer Login
+                    </button>
+
+                    <div class="auth-links">
+                        <a href="#"
+                            onclick="resendVerificationEmail(document.getElementById('verification-email').textContent)">
+                            Não recebeu o email? Reenviar
+                        </a>
+                    </div>
+
+                    <div id="verification-error" class="auth-error" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="auth-loading" class="auth-loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Carregando...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="app-container" style="display: none;">
+        <!-- Header com navegação de meses -->
+        <header class="header">
+            <!-- Banner Principal -->
+            <div class="banner-main">
+                <div class="banner-content">
+                    <div class="banner-left">
+                        <div class="app-logo">
+                            <div class="logo-icon">
+                                <i class="fas fa-chart-pie"></i>
+                            </div>
+                            <div class="logo-text">
+                                <h1>Controle de Gastos</h1>
+                                <p class="app-subtitle">Gestão Financeira Inteligente</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="banner-right">
+                        <div class="banner-actions">
+                            <div class="user-info" id="user-info">
+                                <span id="user-email" class="user-email"></span>
+                                <button class="btn-logout" onclick="handleLogout()" title="Sair">
+                                    <i class="fas fa-sign-out-alt"></i>
+                                </button>
+                            </div>
+                            <button class="theme-toggle" id="theme-toggle" title="Alternar tema">
+                                <i class="fas fa-moon" id="theme-icon"></i>
+                            </button>
+                            <div class="sync-indicator" id="sync-indicator">
+                                <div class="sync-dot"></div>
+                                <span id="sync-status-text">Conectando...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informações do Mês Atual -->
+            <div class="month-info">
+                <div class="month-header">
+                    <div class="month-title">
+                        <h2 id="current-month-display">Fevereiro 2025</h2>
+                        <div class="month-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Total Gastos:</span>
+                                <span class="stat-value" id="month-expenses-total">R$ 0,00</span>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-content">
+                                    <span class="stat-label">Restante a Pagar:</span>
+                                    <span class="stat-value" id="month-remaining">R$ 0,00</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Progresso Pagos:</span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="month-progress"></div>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Sobra Líquida:</span>
+                                <span class="stat-value" id="month-liquid-surplus">R$ 0,00</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="month-actions">
+                        <button class="btn btn-primary" onclick="app.exportarPDF()">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controles de Sincronização -->
+            <div class="sync-controls">
+                <div class="sync-buttons">
+                    <button class="btn btn-sync" id="sync-now-btn" onclick="app.sincronizarAgora()" disabled>
+                        <i class="fas fa-cloud-upload-alt"></i> Sincronizar
+                    </button>
+                    <button class="btn btn-sync" id="sync-download-btn" onclick="app.baixarDaNuvem()" disabled>
+                        <i class="fas fa-cloud-download-alt"></i> Baixar
+                    </button>
+                </div>
+
+                <div class="sync-status-info">
+                    <div class="sync-status-main">
+                        <i class="fas fa-cloud" style="color: var(--primary-color);"></i>
+                        <span id="sync-status-text">Conectando...</span>
+                    </div>
+                    <div class="sync-status-sub">
+                        <span id="last-sync-time">Verificando última sincronização...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navegação de Ano -->
+            <div class="year-navigation">
+                <button class="year-btn" onclick="app.changeYear(-1)" title="Ano anterior">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="year-display">
+                    <span class="current-year-display" id="current-year-display">2025</span>
+                    <div class="year-indicators">
+                        <div class="indicator active"></div>
+                        <div class="indicator"></div>
+                        <div class="indicator"></div>
+                    </div>
+                </div>
+                <button class="year-btn" onclick="app.changeYear(1)" title="Próximo ano">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+
+            <!-- Navegação de Mês -->
+            <div class="month-navigation">
+                <div class="month-scroll">
+                    <button class="month-btn" data-month="1">
+                        <span class="month-name">Jan</span>
+                        <span class="month-number">01</span>
+                    </button>
+                    <button class="month-btn" data-month="2">
+                        <span class="month-name">Fev</span>
+                        <span class="month-number">02</span>
+                    </button>
+                    <button class="month-btn" data-month="3">
+                        <span class="month-name">Mar</span>
+                        <span class="month-number">03</span>
+                    </button>
+                    <button class="month-btn" data-month="4">
+                        <span class="month-name">Abr</span>
+                        <span class="month-number">04</span>
+                    </button>
+                    <button class="month-btn" data-month="5">
+                        <span class="month-name">Mai</span>
+                        <span class="month-number">05</span>
+                    </button>
+                    <button class="month-btn" data-month="6">
+                        <span class="month-name">Jun</span>
+                        <span class="month-number">06</span>
+                    </button>
+                    <button class="month-btn" data-month="7">
+                        <span class="month-name">Jul</span>
+                        <span class="month-number">07</span>
+                    </button>
+                    <button class="month-btn" data-month="8">
+                        <span class="month-name">Ago</span>
+                        <span class="month-number">08</span>
+                    </button>
+                    <button class="month-btn" data-month="9">
+                        <span class="month-name">Set</span>
+                        <span class="month-number">09</span>
+                    </button>
+                    <button class="month-btn" data-month="10">
+                        <span class="month-name">Out</span>
+                        <span class="month-number">10</span>
+                    </button>
+                    <button class="month-btn" data-month="11">
+                        <span class="month-name">Nov</span>
+                        <span class="month-number">11</span>
+                    </button>
+                    <button class="month-btn" data-month="12">
+                        <span class="month-name">Dez</span>
+                        <span class="month-number">12</span>
+                    </button>
+                    <button class="month-btn total-btn" data-month="13">
+                        <span class="month-name">Total</span>
+                        <span class="month-number">📊</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Resumo do mês -->
+        <div class="month-summary" id="resumo-mes-section">
+            <div class="summary-card">
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <span class="label">Hoje:</span>
+                        <span class="value" id="current-date"></span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Próximo Pagto:</span>
+                        <input type="date" id="next-payment-input" class="next-payment-input"
+                            onchange="app.atualizarProximoPagamento()">
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Dias Restantes:</span>
+                        <span class="value" id="days-remaining"></span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Saldo Mês:</span>
+                        <div style="display: flex; align-items: center;">
+                            <input type="text" id="month-balance-input" placeholder="R$ 0,00" value="R$ 0,00"
+                                inputmode="decimal" class="month-balance-input" onchange="app.atualizarSaldoMes()">
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Total Restante:</span>
+                        <span class="value" id="remaining-total">R$ 0,00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Gasto Diário:</span>
+                        <span class="value" id="daily-expense">R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Rápido -->
+        <div class="section quick-dashboard" id="dashboard-rapido-section">
+            <h2><i class="fas fa-bolt"></i> Dashboard Rápido</h2>
+
+            <!-- Adicionar Gasto Rápido -->
+            <div class="quick-expense-form">
+                <div class="quick-form-header">
+                    <h3><i class="fas fa-plus-circle"></i> Adicionar Gasto Rápido</h3>
+                    <span class="quick-tip">Preencha apenas data e valor!</span>
+                </div>
+                <div class="quick-form-content">
+                    <div class="quick-input-group">
+                        <div class="input-field">
+                            <label for="quick-date">Data:</label>
+                            <input type="date" id="quick-date" value="">
+                        </div>
+                        <div class="input-field">
+                            <label for="quick-value">Valor (R$):</label>
+                            <input type="number" id="quick-value" step="0.01" min="0" placeholder="0,00">
+                        </div>
+                        <button class="btn btn-primary" onclick="app.adicionarGastoRapido()">
+                            <i class="fas fa-plus"></i> Adicionar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumo do Dia -->
+            <div class="daily-summary">
+                <div class="summary-card daily">
+                    <div class="summary-header">
+                        <h3><i class="fas fa-calendar-day"></i> Resumo Geral</h3>
+                        <span class="current-date" id="current-date-display"></span>
+                    </div>
+                    <div class="daily-stats">
+                        <div class="stat-item">
+                            <span class="label">Total Geral:</span>
+                            <span class="value" id="daily-total">R$ 0,00</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="label">Quantidade:</span>
+                            <span class="value" id="daily-count">0 gastos</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gastos do Dia -->
+            <div class="daily-expenses">
+                <div class="expenses-header">
+                    <h3><i class="fas fa-list"></i> Gastos Registrados</h3>
+                    <button class="btn btn-danger" onclick="app.limparGastosDia()">
+                        <i class="fas fa-trash"></i> Limpar Todos
+                    </button>
+                </div>
+                <div class="expenses-list" id="daily-expenses-list">
+                    <!-- Gastos serão inseridos aqui -->
+                    <div class="no-expenses">
+                        <i class="fas fa-coffee"></i>
+                        <p>Nenhum gasto registrado hoje</p>
+                        <span>Adicione seu primeiro gasto acima!</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controle de Renda Familiar -->
+        <div class="section" id="renda-familiar-section">
+            <h2><i class="fas fa-home"></i> Controle de Renda Familiar</h2>
+            <div class="family-income-grid">
+                <div class="income-card">
+                    <h3>Entradas</h3>
+                    <div class="income-item">
+                        <label for="my-salary">Salário Guilherme (R$):</label>
+                        <input type="text" id="my-salary" placeholder="R$ 0,00" value="R$ 0,00" inputmode="decimal">
+                    </div>
+                    <div class="income-item">
+                        <label for="her-salary">Salário Joceline (R$):</label>
+                        <input type="text" id="her-salary" placeholder="R$ 0,00" value="R$ 0,00" inputmode="decimal">
+                    </div>
+                    <div class="income-item">
+                        <label for="total-transferred">Total transferido (R$):</label>
+                        <input type="text" id="total-transferred" placeholder="R$ 0,00" value="R$ 0,00"
+                            inputmode="decimal">
+                    </div>
+                </div>
+
+                <div class="income-card">
+                    <h3>Cálculos Automáticos</h3>
+                    <div class="calculation-item">
+                        <span class="label">Despesas Joceline:</span>
+                        <span class="value" id="her-expenses">R$ 0,00</span>
+                    </div>
+                    <div class="calculation-item">
+                        <span class="label">Total sob gestão:</span>
+                        <span class="value" id="available-for-me">R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gastos com Cartão de Crédito -->
+        <div class="section" id="cartao-credito-section">
+            <div class="section-header">
+                <h2><i class="fas fa-credit-card"></i> Gastos com Cartão de Crédito</h2>
+                <button class="btn btn-primary" onclick="openModal('credit')">
+                    <i class="fas fa-plus"></i> Adicionar
+                </button>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Descrição</th>
+                            <th>Valor (R$)</th>
+                            <th>Percentual</th>
+                            <th>Categoria</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="credit-table">
+                        <!-- Dados serão inseridos via JavaScript -->
+                    </tbody>
+                </table>
+                <div class="table-footer">
+                    <strong>Total: <span id="total-credit">R$ 0,00</span> (<span id="total-credit-count">0</span>
+                        itens)</strong>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Gastos do Mês -->
+        <div class="section" id="gastos-mes-section">
+            <div class="section-header">
+                <h2><i class="fas fa-minus-circle"></i> Gastos do Mês</h2>
+                <div class="section-actions">
+                    <button class="btn btn-secondary" onclick="app.copyPreviousMonthExpenses()"
+                        title="Copiar gastos do mês anterior">
+                        <i class="fas fa-copy"></i> Copiar Mês Anterior
+                    </button>
+                    <button class="btn btn-primary" onclick="openModal('expense')">
+                        <i class="fas fa-plus"></i> Adicionar
+                    </button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Descrição</th>
+                            <th>Valor (R$)</th>
+                            <th>Percentual</th>
+                            <th>Categoria</th>
+                            <th>Pago</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expense-table">
+                        <!-- Dados serão inseridos via JavaScript -->
+                    </tbody>
+                </table>
+                <div class="table-footer">
+                    <strong>Total: <span id="total-expense">R$ 0,00</span> (<span id="total-count">0</span>
+                        itens)</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumo Anual (aparece apenas quando Total está selecionado) -->
+        <div class="section annual-summary" id="annual-summary" style="display: none;">
+            <h2><i class="fas fa-calendar-alt"></i> Resumo Anual 2025</h2>
+
+            <!-- Filtro de Período -->
+            <div class="period-filter">
+                <h3><i class="fas fa-filter"></i> Filtrar Período</h3>
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="start-month">De:</label>
+                        <select id="start-month" onchange="app.updatePeriodFilter()">
+                            <option value="1">Janeiro</option>
+                            <option value="2">Fevereiro</option>
+                            <option value="3">Março</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Maio</option>
+                            <option value="6">Junho</option>
+                            <option value="7">Julho</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Setembro</option>
+                            <option value="10">Outubro</option>
+                            <option value="11">Novembro</option>
+                            <option value="12">Dezembro</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="end-month">Até:</label>
+                        <select id="end-month" onchange="app.updatePeriodFilter()">
+                            <option value="1">Janeiro</option>
+                            <option value="2">Fevereiro</option>
+                            <option value="3">Março</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Maio</option>
+                            <option value="6">Junho</option>
+                            <option value="7">Julho</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Setembro</option>
+                            <option value="10">Outubro</option>
+                            <option value="11">Novembro</option>
+                            <option value="12" selected>Dezembro</option>
+                        </select>
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn btn-primary" onclick="app.resetPeriodFilter()">
+                            <i class="fas fa-undo"></i> Ano Todo
+                        </button>
+                        <span class="period-display" id="period-display">Janeiro a Dezembro</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controle de Renda Familiar Anual -->
+            <div class="annual-income-section">
+                <h3><i class="fas fa-home"></i> Controle de Renda Familiar (Anual)</h3>
+                <div class="annual-income-grid">
+                    <div class="annual-card">
+                        <h4>Entradas Totais</h4>
+                        <div class="annual-item">
+                            <span class="label">Salário Guilherme (Ano):</span>
+                            <span class="value" id="annual-my-salary">R$ 0,00</span>
+                        </div>
+                        <div class="annual-item">
+                            <span class="label">Salário Joceline (Ano):</span>
+                            <span class="value" id="annual-her-salary">R$ 0,00</span>
+                        </div>
+                        <div class="annual-item">
+                            <span class="label">Total Transferido (Ano):</span>
+                            <span class="value" id="annual-transferred">R$ 0,00</span>
+                        </div>
+                        <div class="annual-item total">
+                            <span class="label">Soma do Total sob Gestão:</span>
+                            <span class="value" id="annual-available">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gastos com Cartão Anual -->
+            <div class="annual-credit-section">
+                <h3><i class="fas fa-credit-card"></i> Gastos com Cartão (Anual)</h3>
+                <div class="annual-credit-list" id="annual-credit-list">
+                    <!-- Será preenchido via JavaScript -->
+                </div>
+            </div>
+
+            <!-- Gastos Mensais Anual -->
+            <div class="annual-expenses-section">
+                <h3><i class="fas fa-minus-circle"></i> Gastos Mensais (Anual)</h3>
+                <div class="annual-expenses-list" id="annual-expenses-list">
+                    <!-- Será preenchido via JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Análise 50/30/20 -->
+        <div class="section">
+            <h2><i class="fas fa-chart-pie"></i> Análise 50/30/20</h2>
+
+            <!-- Análise por Categoria -->
+            <div class="category-analysis">
+                <!-- Categoria Essencial -->
+                <div class="category-card">
+                    <div class="category-header">
+                        <i class="fas fa-home"></i>
+                        <h3>Essencial (50%)</h3>
+                    </div>
+                    <div class="category-content">
+                        <div class="chart-section">
+                            <canvas id="essentialChart" width="400" height="150"></canvas>
+                        </div>
+                        <div class="summary-section">
+                            <div class="budget-summary">
+                                <div class="budget-row">
+                                    <span class="label">Orçado:</span>
+                                    <span class="value ideal" id="essential-ideal">R$ 0,00</span>
+                                </div>
+                                <div class="budget-row">
+                                    <span class="label">Realizado:</span>
+                                    <span class="value actual" id="essential-real">R$ 0,00</span>
+                                </div>
+                                <div class="budget-difference" id="essential-difference">
+                                    <span class="label">Diferença:</span>
+                                    <span class="value">R$ 0,00</span>
+                                </div>
+                            </div>
+                            <div class="budget-status" id="essential-status">
+                                <span class="status-text">Dentro do orçamento</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Categoria Desejo -->
+                <div class="category-card">
+                    <div class="category-header">
+                        <i class="fas fa-heart"></i>
+                        <h3>Desejo (30%)</h3>
+                    </div>
+                    <div class="category-content">
+                        <div class="chart-section">
+                            <canvas id="desireChart" width="400" height="150"></canvas>
+                        </div>
+                        <div class="summary-section">
+                            <div class="budget-summary">
+                                <div class="budget-row">
+                                    <span class="label">Orçado:</span>
+                                    <span class="value ideal" id="desire-ideal">R$ 0,00</span>
+                                </div>
+                                <div class="budget-row">
+                                    <span class="label">Realizado:</span>
+                                    <span class="value actual" id="desire-real">R$ 0,00</span>
+                                </div>
+                                <div class="budget-difference" id="desire-difference">
+                                    <span class="label">Diferença:</span>
+                                    <span class="value">R$ 0,00</span>
+                                </div>
+                            </div>
+                            <div class="budget-status" id="desire-status">
+                                <span class="status-text">Dentro do orçamento</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Categoria Investimento -->
+                <div class="category-card">
+                    <div class="category-header">
+                        <i class="fas fa-chart-line"></i>
+                        <h3>Investimento (20%)</h3>
+                    </div>
+                    <div class="category-content">
+                        <div class="chart-section">
+                            <canvas id="investmentChart" width="400" height="150"></canvas>
+                        </div>
+                        <div class="summary-section">
+                            <div class="budget-summary">
+                                <div class="budget-row">
+                                    <span class="label">Orçado:</span>
+                                    <span class="value ideal" id="investment-ideal">R$ 0,00</span>
+                                </div>
+                                <div class="budget-row">
+                                    <span class="label">Realizado:</span>
+                                    <span class="value actual" id="investment-real">R$ 0,00</span>
+                                </div>
+                                <div class="budget-difference" id="investment-difference">
+                                    <span class="label">Diferença:</span>
+                                    <span class="value">R$ 0,00</span>
+                                </div>
+                            </div>
+                            <div class="budget-status" id="investment-status">
+                                <span class="status-text">Dentro do orçamento</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <!-- Modal para adicionar/editar itens -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Adicionar Item</h3>
+                <span class="close" onclick="closeModal()"></span>
+            </div>
+            <form id="item-form">
+                <div class="form-group">
+                    <label for="description">Descrição:</label>
+                    <input type="text" id="description" required>
+                </div>
+                <div class="form-group">
+                    <label for="value">Valor (R$):</label>
+                    <input type="number" id="value" step="0.01" min="0" required>
+                </div>
+                <div class="form-group" id="category-group" style="display: none;">
+                    <label for="category">Categoria:</label>
+                    <select id="category">
+                        <option value="essential">Essencial</option>
+                        <option value="desire">Desejo</option>
+                        <option value="investment">Investimento</option>
+                    </select>
+                </div>
+
+
+
+                <div class="form-group" id="date-group" style="display: none;">
+                    <label for="date">Data:</label>
+                    <input type="date" id="date">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de confirmação personalizado -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content confirm-modal">
+            <div class="modal-header">
+                <h3 id="confirm-title">Confirmação</h3>
+                <span class="close" onclick="closeConfirmModal()"></span>
+            </div>
+            <div class="confirm-content">
+                <div class="confirm-icon">
+                    <i class="fas fa-question-circle"></i>
+                </div>
+                <p id="confirm-message">Tem certeza que deseja realizar esta ação?</p>
+            </div>
+            <div class="confirm-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeConfirmModal()">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirm-ok-btn">OK</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Botão flutuante para voltar ao topo -->
+    <button id="back-to-top" class="back-to-top" title="Voltar ao topo">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
