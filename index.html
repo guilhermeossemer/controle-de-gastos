@@ -2,69 +2,65 @@
 <html lang="pt-BR">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle de Gastos - 50/30/20</title>
-    <meta name="description" content="Aplicação para controle de gastos pessoais usando o método 50/30/20">
-    <meta name="theme-color" content="#667eea">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle de Gastos - 50/30/20</title>
+  <meta name="description" content="Aplicação para controle de gastos pessoais usando o método 50/30/20">
+  <meta name="theme-color" content="#667eea">
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
 
-    <!-- Favicon -->
-    <link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
-    <link rel="shortcut icon" href="favicon.png">
-    <link rel="apple-touch-icon" href="favicon.png">
-    <meta name="msapplication-TileImage" content="favicon.png">
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
-    <script>
-        // Verificar e carregar bibliotecas
-        window.addEventListener('load', function () {
-            console.log('🔄 Verificando bibliotecas...');
+  <!-- Ícones -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
 
-            // Verificar Chart.js
-            if (typeof window.Chart === 'undefined') {
-                console.error('❌ Chart.js não foi carregado corretamente');
-            } else {
-                console.log('✅ Chart.js carregado com sucesso');
-            }
+  <!-- Estilo -->
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
-            // Verificar jsPDF com retry
-            setTimeout(() => {
-                if (typeof window.jsPDF === 'undefined') {
-                    console.warn('⚠️ jsPDF não carregado, tentando novamente...');
+  <!-- Bibliotecas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
 
-                    // Tentar carregar novamente
-                    const script = document.createElement('script');
-                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-                    script.onload = () => {
-                        console.log('✅ jsPDF carregado na segunda tentativa');
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
 
-                        // Carregar plugin autotable
-                        const pluginScript = document.createElement('script');
-                        pluginScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js';
-                        pluginScript.onload = () => console.log('✅ Plugin autotable carregado');
-                        document.head.appendChild(pluginScript);
-                    };
-                    script.onerror = () => console.error('❌ Falha ao recarregar jsPDF');
-                    document.head.appendChild(script);
-                } else {
-                    console.log('✅ jsPDF carregado com sucesso');
-                }
-            }, 1000);
-        });
-    </script>
-    <link rel="apple-touch-icon"
-        href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjQiIGZpbGw9InVybCgjZ3JhZGllbnQwX2xpbmVhcl8xXzEpIi8+CjxwYXRoIGQ9Ik05NiA0OEM3My45MDg2IDQ4IDU2IDY1LjkwODYgNTYgODhWMTQ0QzU2IDE2Ni4wOTEgNzMuOTA4NiAxODQgOTYgMTg0QzExOC4wOTEgMTg0IDEzNiAxNjYuMDkxIDEzNiAxNDRWODhDMTM2IDY1LjkwODYgMTE4LjA5MSA0OCA5NiA0OFoiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuOSIvPgo8cGF0aCBkPSJNODggNzJIMTA0VjEyMEg4OFY3MloiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik03MiA5NkgxMjBWMTEySDcyVjk2WiIgZmlsbD0id2hpdGUiLz4KPGRlZnM+CjxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZGllbnQwX2xpbmVhcl8xXzEiIHgxPSIwIiB5MT0iMCIgeDI9IjE5MiIgeTI9IjE5MiIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgo8c3RvcCBzdG9wLWNvbG9yPSIjNjY3ZWVhIi8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzc2NGJhMiIvPgo8L2xpbmVhckdyYWRpZW50Pgo8L2RlZnM+Cjwvc3ZnPgo=">
+  <script>
+    window.addEventListener('load', function () {
+      console.log('🔄 Verificando bibliotecas...');
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+      if (typeof window.Chart === 'undefined') {
+        console.error('❌ Chart.js não foi carregado corretamente');
+      } else {
+        console.log('✅ Chart.js carregado com sucesso');
+      }
+
+      setTimeout(() => {
+        if (typeof window.jsPDF === 'undefined') {
+          console.warn('⚠️ jsPDF não carregado, tentando novamente...');
+
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          script.onload = () => {
+            console.log('✅ jsPDF carregado na segunda tentativa');
+
+            const pluginScript = document.createElement('script');
+            pluginScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js';
+            pluginScript.onload = () => console.log('✅ Plugin autotable carregado');
+            document.head.appendChild(pluginScript);
+          };
+          script.onerror = () => console.error('❌ Falha ao recarregar jsPDF');
+          document.head.appendChild(script);
+        } else {
+          console.log('✅ jsPDF carregado com sucesso');
+        }
+      }, 1000);
+    });
+  </script>
 </head>
 
 <body>

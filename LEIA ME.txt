@@ -1,0 +1,5 @@
+versão upada dia 03/02/26, no GitHub, funcionando
+mudanças:
+mexido no banco de dados;
+gastos em ordem alfabética;
+data =hoje no gasto diario
