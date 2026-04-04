@@ -2,65 +2,65 @@
 <html lang="pt-BR">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Controle de Gastos - 50/30/20</title>
-  <meta name="description" content="Aplicação para controle de gastos pessoais usando o método 50/30/20">
-  <meta name="theme-color" content="#667eea">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Gastos - 50/30/20</title>
+    <meta name="description" content="Aplicação para controle de gastos pessoais usando o método 50/30/20">
+    <meta name="theme-color" content="#667eea">
 
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.json">
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
 
-  <!-- Ícones -->
-  <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="apple-touch-icon" href="icon-192.png">
+    <!-- Ícones -->
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
 
-  <!-- Estilo -->
-  <link rel="stylesheet" href="styles.css">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Estilo -->
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
-  <!-- Bibliotecas -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <!-- Bibliotecas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
 
-  <script>
-    window.addEventListener('load', function () {
-      console.log('🔄 Verificando bibliotecas...');
+    <script>
+        window.addEventListener('load', function () {
+            console.log('🔄 Verificando bibliotecas...');
 
-      if (typeof window.Chart === 'undefined') {
-        console.error('❌ Chart.js não foi carregado corretamente');
-      } else {
-        console.log('✅ Chart.js carregado com sucesso');
-      }
+            if (typeof window.Chart === 'undefined') {
+                console.error('❌ Chart.js não foi carregado corretamente');
+            } else {
+                console.log('✅ Chart.js carregado com sucesso');
+            }
 
-      setTimeout(() => {
-        if (typeof window.jsPDF === 'undefined') {
-          console.warn('⚠️ jsPDF não carregado, tentando novamente...');
+            setTimeout(() => {
+                if (typeof window.jsPDF === 'undefined') {
+                    console.warn('⚠️ jsPDF não carregado, tentando novamente...');
 
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-          script.onload = () => {
-            console.log('✅ jsPDF carregado na segunda tentativa');
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+                    script.onload = () => {
+                        console.log('✅ jsPDF carregado na segunda tentativa');
 
-            const pluginScript = document.createElement('script');
-            pluginScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js';
-            pluginScript.onload = () => console.log('✅ Plugin autotable carregado');
-            document.head.appendChild(pluginScript);
-          };
-          script.onerror = () => console.error('❌ Falha ao recarregar jsPDF');
-          document.head.appendChild(script);
-        } else {
-          console.log('✅ jsPDF carregado com sucesso');
-        }
-      }, 1000);
-    });
-  </script>
+                        const pluginScript = document.createElement('script');
+                        pluginScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js';
+                        pluginScript.onload = () => console.log('✅ Plugin autotable carregado');
+                        document.head.appendChild(pluginScript);
+                    };
+                    script.onerror = () => console.error('❌ Falha ao recarregar jsPDF');
+                    document.head.appendChild(script);
+                } else {
+                    console.log('✅ jsPDF carregado com sucesso');
+                }
+            }, 1000);
+        });
+    </script>
 </head>
 
 <body>
@@ -251,6 +251,10 @@
                                 <div class="sync-dot"></div>
                                 <span id="sync-status-text">Conectando...</span>
                             </div>
+                            <button class="btn-icon calculator-top-btn" onclick="openCalculatorModal()"
+                                title="Abrir calculadora">
+                                <i class="fas fa-calculator"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -864,6 +868,47 @@
     </button>
 
     <script src="script.js"></script>
+    <!-- Modal Calculadora -->
+    <div id="calculator-modal" class="modal" style="display: none;">
+        <div class="modal-content calculator-modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-calculator"></i> Calculadora</h3>
+                <span class="close" onclick="closeCalculatorModal()">
+                    <i class="fas fa-times"></i>
+                </span>
+            </div>
+
+            <div class="calculator-container">
+                <input type="text" id="calculator-display" class="calculator-display" value="0" readonly>
+
+                <div class="calculator-buttons">
+                    <button onclick="clearCalculator()">C</button>
+                    <button onclick="deleteCalculator()">⌫</button>
+                    <button onclick="appendCalculator('%')">%</button>
+                    <button class="operator" onclick="appendCalculator('/')">÷</button>
+
+                    <button onclick="appendCalculator('7')">7</button>
+                    <button onclick="appendCalculator('8')">8</button>
+                    <button onclick="appendCalculator('9')">9</button>
+                    <button class="operator" onclick="appendCalculator('*')">×</button>
+
+                    <button onclick="appendCalculator('4')">4</button>
+                    <button onclick="appendCalculator('5')">5</button>
+                    <button onclick="appendCalculator('6')">6</button>
+                    <button class="operator" onclick="appendCalculator('-')">−</button>
+
+                    <button onclick="appendCalculator('1')">1</button>
+                    <button onclick="appendCalculator('2')">2</button>
+                    <button onclick="appendCalculator('3')">3</button>
+                    <button class="operator" onclick="appendCalculator('+')">+</button>
+
+                    <button onclick="appendCalculator('0')" class="zero">0</button>
+                    <button onclick="appendCalculator('.')">.</button>
+                    <button class="equal" onclick="calculateResult()">=</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

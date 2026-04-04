@@ -1,6 +1,6 @@
 {
   "name": "Controle de Gastos - 50/30/20",
-  "short_name": "Controle de Gastos",
+  "short_name": "Gastos",
   "description": "Aplicação para controle de gastos pessoais usando o método 50/30/20",
   "start_url": "./index.html",
   "scope": "./",

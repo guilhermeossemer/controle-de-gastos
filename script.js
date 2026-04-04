@@ -5581,3 +5581,79 @@ function closeModal() {
 function closeConfirmModal() {
     document.getElementById('confirm-modal').style.display = 'none';
 }
+
+// ========================================
+// CALCULADORA
+// ========================================
+
+let calculatorExpression = '';
+
+function openCalculatorModal() {
+    const modal = document.getElementById('calculator-modal');
+    const display = document.getElementById('calculator-display');
+
+    calculatorExpression = '';
+    if (display) display.value = '0';
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeCalculatorModal() {
+    const modal = document.getElementById('calculator-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function appendCalculator(value) {
+    const display = document.getElementById('calculator-display');
+    if (!display) return;
+
+    if (calculatorExpression === '0' && value !== '.') {
+        calculatorExpression = value;
+    } else {
+        calculatorExpression += value;
+    }
+
+    display.value = calculatorExpression || '0';
+}
+
+function clearCalculator() {
+    calculatorExpression = '';
+    const display = document.getElementById('calculator-display');
+    if (display) display.value = '0';
+}
+
+function deleteCalculator() {
+    calculatorExpression = calculatorExpression.slice(0, -1);
+    const display = document.getElementById('calculator-display');
+    if (display) display.value = calculatorExpression || '0';
+}
+
+function calculateResult() {
+    const display = document.getElementById('calculator-display');
+    if (!display) return;
+
+    try {
+        let expression = calculatorExpression.replace(/%/g, '/100');
+        let result = eval(expression);
+
+        if (!isFinite(result)) {
+            display.value = 'Erro';
+            calculatorExpression = '';
+            return;
+        }
+
+        result = Number(result.toFixed(2));
+        calculatorExpression = result.toString();
+        display.value = calculatorExpression;
+    } catch (error) {
+        display.value = 'Erro';
+        calculatorExpression = '';
+    }
+}
+
+// Fechar ao clicar fora
+window.addEventListener('click', function (event) {
+    const modal = document.getElementById('calculator-modal');
+    if (event.target === modal) {
+        closeCalculatorModal();
+    }
+});
