@@ -1,8 +1,7 @@
 // Service Worker para Controle de Gastos PWA
 
-const CACHE_NAME = 'controle-gastos-v2';
+const CACHE_NAME = 'controle-gastos-v3';
 const urlsToCache = [
-  './',
   './index.html',
   './styles.css',
   './script.js',
@@ -41,45 +40,27 @@ self.addEventListener('activate', event => {
 
 // Interceptação de requisições
 self.addEventListener('fetch', event => {
+
   const requestUrl = new URL(event.request.url);
 
-  // 🔥 NÃO cachear manifest nem Firebase/CDN externos
-  if (
-    requestUrl.pathname.includes('manifest.json') ||
-    requestUrl.origin !== location.origin
-  ) {
+  if (requestUrl.origin !== location.origin) {
+    return;
+  }
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  if (event.request.method !== 'GET') {
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then(response => {
-      if (response) {
-        return response;
-      }
-
-      return fetch(event.request)
-        .then(networkResponse => {
-          if (
-            !networkResponse ||
-            networkResponse.status !== 200 ||
-            networkResponse.type !== 'basic'
-          ) {
-            return networkResponse;
-          }
-
-          const responseToCache = networkResponse.clone();
-
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseToCache);
-          });
-
-          return networkResponse;
-        })
-        .catch(() => {
-          if (event.request.destination === 'document') {
-            return caches.match('./index.html');
-          }
-        });
+      return response || fetch(event.request);
     })
   );
 });

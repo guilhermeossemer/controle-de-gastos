@@ -19,19 +19,37 @@ let auth = null;
 let db = null;
 let currentUser = null;
 
+document.addEventListener('DOMContentLoaded', () => {
+    const authContainer = document.getElementById('auth-container');
+    const appContainer = document.getElementById('app-container');
+    const authLoading = document.getElementById('auth-loading');
+
+    if (authContainer) authContainer.style.display = 'none';
+    if (appContainer) appContainer.style.display = 'none';
+    if (authLoading) authLoading.style.display = 'flex';
+});
+
 // Função para inicializar Firebase
 function initFirebase() {
     try {
         if (typeof firebase !== 'undefined' && !firebaseApp) {
-            firebaseApp = firebase.initializeApp(firebaseConfig);
+            firebase.initializeApp(firebaseConfig);
+
             auth = firebase.auth();
+
+            // ✅ Manter login salvo no celular
+            auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+                .then(() => {
+                    console.log('✅ Persistência ativada');
+                })
+                .catch((error) => {
+                    console.error('Erro persistência:', error);
+                });
             db = firebase.firestore();
             console.log('✅ Firebase inicializado com sucesso');
 
-            // Sempre exigir login ao abrir: limpar sessão anterior
-            auth.signOut().catch((error) => {
-                console.warn('⚠️ Erro ao limpar sessão no carregamento:', error);
-            });
+            // ❌ REMOVIDO - NÃO deslogar automaticamente
+            // auth.signOut();
 
             // Observar mudanças no estado de autenticação
             auth.onAuthStateChanged(handleAuthStateChanged);
@@ -47,6 +65,8 @@ function handleAuthStateChanged(user) {
     const appContainer = document.getElementById('app-container');
     const authLoading = document.getElementById('auth-loading');
 
+    if (authLoading) authLoading.style.display = 'none';
+
     if (user) {
         // Usuário logado
         console.log('✅ Usuário autenticado:', user.email);
@@ -54,8 +74,14 @@ function handleAuthStateChanged(user) {
 
         // Verificar se o email foi verificado
         if (!user.emailVerified) {
-            console.log('⚠️ Email não verificado, fazendo logout');
-            auth.signOut();
+            console.log('⚠️ Email não verificado');
+
+            if (authContainer) authContainer.style.display = 'flex';
+            if (appContainer) appContainer.style.display = 'none';
+            if (authLoading) authLoading.style.display = 'none';
+
+            alert('Verifique seu email antes de entrar');
+
             return;
         }
 
@@ -80,7 +106,9 @@ function handleAuthStateChanged(user) {
         // Inicializar aplicação com dados do usuário
         if (typeof app !== 'undefined' && app) {
             app.userId = user.uid;
-            app.loadUserData();
+            if (!app.isDataLoaded) {
+                app.loadUserData();
+            }
 
             // Atualizar status de sincronização
             const syncStatusElement = document.getElementById('sync-status-text');
@@ -102,12 +130,14 @@ function handleAuthStateChanged(user) {
         // Limpar dados da aplicação quando usuário faz logout
         if (typeof app !== 'undefined' && app) {
             app.userId = null;
-            app.data = {};
+            // NÃO apagar dados automaticamente
+            console.log('Dados mantidos localmente');
             app.isDataLoaded = false;
-            console.log('🧹 Dados limpos - usuário fez logout');
+            console.log('👋 Usuário deslogado');
 
             // Limpar localStorage também
-            localStorage.removeItem('controleGastos');
+            // ❌ NÃO apagar automaticamente
+            console.log('Logout realizado - dados preservados');
         }
 
         // Mostrar tela de login e esconder app
@@ -365,13 +395,7 @@ async function resendVerificationEmail(email) {
 async function handleLogout() {
     try {
         await auth.signOut();
-        console.log('✅ Logout realizado com sucesso');
-
-        // Limpar dados locais
-        if (typeof app !== 'undefined' && app) {
-            app.userId = null;
-        }
-
+        console.log('👋 Logout realizado com sucesso');
     } catch (error) {
         console.error('❌ Erro no logout:', error);
         alert('Erro ao sair. Tente novamente.');
@@ -1456,7 +1480,8 @@ class ControleGastos {
 
                 // Limpar completamente localStorage para novo usuário
                 console.log('🧹 Limpando localStorage completamente para novo usuário');
-                localStorage.removeItem('controleGastos');
+                // ❌ NÃO apagar automaticamente
+                console.log('Logout realizado - dados preservados');
 
                 // Criar dados limpos para novo usuário
                 console.log('🧹 Criando dados limpos para novo usuário');
@@ -4667,7 +4692,8 @@ class ControleGastos {
     // Função para limpar todos os dados (útil para remover dados de exemplo)
     limparTodosDados() {
         if (confirm('⚠️ ATENÇÃO: Isso irá remover TODOS os dados salvos (gastos, receitas, etc). Esta ação não pode ser desfeita. Tem certeza?')) {
-            localStorage.removeItem('controleGastos');
+            // ❌ NÃO apagar automaticamente
+            console.log('Logout realizado - dados preservados');
             location.reload(); // Recarregar a página para começar do zero
         }
     }
