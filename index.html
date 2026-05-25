@@ -416,7 +416,7 @@
                         <span class="label">Saldo Mês:</span>
                         <div style="display: flex; align-items: center;">
                             <input type="text" id="month-balance-input" placeholder="R$ 0,00" value="R$ 0,00"
-                                inputmode="decimal" class="month-balance-input" onchange="app.atualizarSaldoMes()">
+                                inputmode="numeric" class="month-balance-input" onchange="app.atualizarSaldoMes()">
                         </div>
                     </div>
                     <div class="summary-item">
@@ -449,7 +449,7 @@
                         </div>
                         <div class="input-field">
                             <label for="quick-value">Valor (R$):</label>
-                            <input type="number" id="quick-value" step="0.01" min="0" placeholder="0,00">
+                            <input type="text" id="quick-value" inputmode="numeric" placeholder="0,00">
                         </div>
                         <button class="btn btn-primary" onclick="app.adicionarGastoRapido()">
                             <i class="fas fa-plus"></i> Adicionar
@@ -505,16 +505,16 @@
                     <h3>Entradas</h3>
                     <div class="income-item">
                         <label for="my-salary">Salário Guilherme (R$):</label>
-                        <input type="text" id="my-salary" placeholder="R$ 0,00" value="R$ 0,00" inputmode="decimal">
+                        <input type="text" id="my-salary" placeholder="R$ 0,00" value="R$ 0,00" inputmode="numeric">
                     </div>
                     <div class="income-item">
                         <label for="her-salary">Salário Joceline (R$):</label>
-                        <input type="text" id="her-salary" placeholder="R$ 0,00" value="R$ 0,00" inputmode="decimal">
+                        <input type="text" id="her-salary" placeholder="R$ 0,00" value="R$ 0,00" inputmode="numeric">
                     </div>
                     <div class="income-item">
                         <label for="total-transferred">Total transferido (R$):</label>
                         <input type="text" id="total-transferred" placeholder="R$ 0,00" value="R$ 0,00"
-                            inputmode="decimal">
+                            inputmode="numeric">
                     </div>
                 </div>
 
@@ -815,7 +815,7 @@
                 </div>
                 <div class="form-group">
                     <label for="value">Valor (R$):</label>
-                    <input type="number" id="value" step="0.01" min="0" required>
+                    <input type="text" id="value" inputmode="numeric" required>
                 </div>
                 <div class="form-group" id="category-group" style="display: none;">
                     <label for="category">Categoria:</label>

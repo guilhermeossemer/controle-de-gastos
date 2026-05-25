@@ -477,6 +477,7 @@ class ControleGastos {
         this.ultimaSincronizacao = null;
         this.sincronizacaoAutomatica = true;
         this.budgetChart = null;
+        this.DEBUG = false;
 
         // Dados da renda familiar (carregados do localStorage)
         this.rendaFamiliar = this.loadRendaFamiliar();
@@ -495,6 +496,34 @@ class ControleGastos {
         this.initTheme();
 
         this.init();
+    }
+
+    debugLog(...args) {
+        if (this.DEBUG) console.log(...args);
+    }
+
+    escapeHTML(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    createLocalBackupBeforeSync() {
+        try {
+            const backups = JSON.parse(localStorage.getItem('controleGastosBackups') || '[]');
+            backups.unshift({
+                createdAt: new Date().toISOString(),
+                reason: 'before-firestore-sync',
+                controleGastos: this.data
+            });
+
+            localStorage.setItem('controleGastosBackups', JSON.stringify(backups.slice(0, 5)));
+        } catch (error) {
+            console.warn('⚠️ Não foi possível criar backup local antes da sincronização:', error);
+        }
     }
 
     // Inicializar tema
@@ -519,6 +548,7 @@ class ControleGastos {
     init() {
         try {
             this.setupEventListeners();
+            this.configurarInputsValores();
             this.updateCurrentDate();
             this.updateMonthDisplay(); // Adicionar esta linha
             const quickDateInput = document.getElementById('quick-date');
@@ -1154,7 +1184,7 @@ class ControleGastos {
                         <tbody>
                             ${gastosMensais.map(item => `
                                 <tr>
-                                    <td>${item.description}</td>
+                                    <td>${this.escapeHTML(item.description)}</td>
                                     <td>${this.formatarMoeda(item.value)}</td>
                                     <td class="categoria-${item.category}">${this.getCategoryName(item.category)}</td>
                                     <td>${item.paid ? '✅ Pago' : '⏳ Pendente'}</td>
@@ -1182,7 +1212,7 @@ class ControleGastos {
                         <tbody>
                             ${gastosCartao.map(item => `
                                 <tr>
-                                    <td>${item.description}</td>
+                                    <td>${this.escapeHTML(item.description)}</td>
                                     <td>${this.formatarMoeda(item.value)}</td>
                                     <td class="categoria-${item.category}">${this.getCategoryName(item.category)}</td>
                                 </tr>
@@ -1431,7 +1461,7 @@ class ControleGastos {
             return;
         }
 
-        console.log('💾 Salvando dados:', this.data);
+        this.debugLog('💾 Salvando dados:', this.data);
         localStorage.setItem('controleGastos', JSON.stringify(this.data));
         console.log('✅ Dados salvos com sucesso no localStorage');
 
@@ -1549,6 +1579,8 @@ class ControleGastos {
         }
 
         try {
+            this.createLocalBackupBeforeSync();
+
             await db.collection('users').doc(this.userId).collection('data').doc('gastos').set({
                 controleGastos: this.data,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1825,15 +1857,15 @@ class ControleGastos {
         // Calcular restante a pagar dos resumos do cartão
         let totalNaoPagoCartao = 0;
         if (this.data.creditSummaryStatus) {
-            if (!this.data.creditSummaryStatus['credit-essential'] && monthData.creditCard) {
+            if (!this.getCreditSummaryStatus('credit-essential') && monthData.creditCard) {
                 const creditEssential = monthData.creditCard.filter(item => item.category === 'essential').reduce((sum, item) => sum + item.value, 0);
                 totalNaoPagoCartao += creditEssential;
             }
-            if (!this.data.creditSummaryStatus['credit-desire'] && monthData.creditCard) {
+            if (!this.getCreditSummaryStatus('credit-desire') && monthData.creditCard) {
                 const creditDesire = monthData.creditCard.filter(item => item.category === 'desire').reduce((sum, item) => sum + item.value, 0);
                 totalNaoPagoCartao += creditDesire;
             }
-            if (!this.data.creditSummaryStatus['credit-investment'] && monthData.creditCard) {
+            if (!this.getCreditSummaryStatus('credit-investment') && monthData.creditCard) {
                 const creditInvestment = monthData.creditCard.filter(item => item.category === 'investment').reduce((sum, item) => sum + item.value, 0);
                 totalNaoPagoCartao += creditInvestment;
             }
@@ -1858,15 +1890,15 @@ class ControleGastos {
         // Calcular total pago dos resumos do cartão
         let totalPagoCartao = 0;
         if (this.data.creditSummaryStatus) {
-            if (this.data.creditSummaryStatus['credit-essential'] && monthData.creditCard) {
+            if (this.getCreditSummaryStatus('credit-essential') && monthData.creditCard) {
                 const creditEssential = monthData.creditCard.filter(item => item.category === 'essential').reduce((sum, item) => sum + item.value, 0);
                 totalPagoCartao += creditEssential;
             }
-            if (this.data.creditSummaryStatus['credit-desire'] && monthData.creditCard) {
+            if (this.getCreditSummaryStatus('credit-desire') && monthData.creditCard) {
                 const creditDesire = monthData.creditCard.filter(item => item.category === 'desire').reduce((sum, item) => sum + item.value, 0);
                 totalPagoCartao += creditDesire;
             }
-            if (this.data.creditSummaryStatus['credit-investment'] && monthData.creditCard) {
+            if (this.getCreditSummaryStatus('credit-investment') && monthData.creditCard) {
                 const creditInvestment = monthData.creditCard.filter(item => item.category === 'investment').reduce((sum, item) => sum + item.value, 0);
                 totalPagoCartao += creditInvestment;
             }
@@ -1907,7 +1939,7 @@ class ControleGastos {
             // Aplicar cor APENAS ao valor baseado no restante a pagar (mesma lógica da barra)
             const remainingCard = remainingEl.closest('.stat-item');
             if (remainingCard) {
-                console.log(`🔍 Verificando valor Restante: totalNaoPago=${totalNaoPago}, totalExpenses=${totalExpenses}`);
+                this.debugLog(`🔍 Verificando valor Restante: totalNaoPago=${totalNaoPago}, totalExpenses=${totalExpenses}`);
 
                 // Aplicar cor diretamente no valor baseado na mesma lógica da barra
                 if (totalNaoPago === 0) {
@@ -1933,7 +1965,7 @@ class ControleGastos {
                 }
             }
 
-            console.log(`💰 Restante a Pagar: ${this.formatarMoeda(totalNaoPago)} - Progresso: ${progresso}% - Classe: ${colorClass}`);
+            this.debugLog(`💰 Restante a Pagar: ${this.formatarMoeda(totalNaoPago)} - Progresso: ${progresso}% - Classe: ${colorClass}`);
         }
 
         if (progressEl) {
@@ -1965,7 +1997,7 @@ class ControleGastos {
             console.log(`📊 Progresso atualizado: ${progresso}% - Cor: ${progresso >= 100 ? 'Verde Total' : progresso >= 70 ? 'Verde Claro' : progresso >= 40 ? 'Laranja' : progresso > 0 ? 'Vermelho' : 'Cinza'}`);
 
             // Log para debug da barra
-            console.log(`📊 Barra Progresso: totalNaoPago=${totalNaoPago}, totalExpenses=${totalExpenses}`);
+            this.debugLog(`📊 Barra Progresso: totalNaoPago=${totalNaoPago}, totalExpenses=${totalExpenses}`);
         }
 
         // Atualizar sobra líquida
@@ -1983,7 +2015,7 @@ class ControleGastos {
             }
 
             liquidSurplusEl.className = colorClass;
-            console.log(`💰 Sobra Líquida: ${this.formatarMoeda(sobraLiquida)} (Total sob gestão: ${this.formatarMoeda(totalSobGestao)} - Total gastos: ${this.formatarMoeda(totalExpenses)}) - Classe: ${colorClass}`);
+            this.debugLog(`💰 Sobra Líquida: ${this.formatarMoeda(sobraLiquida)} (Total sob gestão: ${this.formatarMoeda(totalSobGestao)} - Total gastos: ${this.formatarMoeda(totalExpenses)}) - Classe: ${colorClass}`);
         }
     }
 
@@ -2029,7 +2061,7 @@ class ControleGastos {
                 const totalSobGestaoMes = (monthData.rendaFamiliar?.meuSalario || 0) + (monthData.rendaFamiliar?.totalTransferido || 0);
                 totalSobGestaoAno += totalSobGestaoMes;
 
-                console.log(`📊 Mês ${month}: Gastos=${this.formatarMoeda(totalGastosMes)}, Sob Gestão=${this.formatarMoeda(totalSobGestaoMes)}`);
+                this.debugLog(`📊 Mês ${month}: Gastos=${this.formatarMoeda(totalGastosMes)}, Sob Gestão=${this.formatarMoeda(totalSobGestaoMes)}`);
             }
         });
 
@@ -2055,7 +2087,7 @@ class ControleGastos {
 
         if (expensesTotalEl) {
             expensesTotalEl.textContent = this.formatarMoeda(totalExpensesAno);
-            console.log('✅ Total Gastos do ano atualizado:', this.formatarMoeda(totalExpensesAno));
+            this.debugLog('✅ Total Gastos do ano atualizado:', this.formatarMoeda(totalExpensesAno));
         }
 
         if (liquidSurplusEl) {
@@ -2072,7 +2104,7 @@ class ControleGastos {
             }
 
             liquidSurplusEl.className = colorClass;
-            console.log('✅ Sobra Líquida do ano atualizada:', this.formatarMoeda(sobraLiquidaAno));
+            this.debugLog('✅ Sobra Líquida do ano atualizada:', this.formatarMoeda(sobraLiquidaAno));
         }
 
         console.log('✅ updateAnnualHeaderStats concluído com sucesso');
@@ -2099,7 +2131,7 @@ class ControleGastos {
         this.ensureMonthDataExists();
 
         // Log da estrutura de dados
-        console.log('🔍 Estrutura de dados após mudança de ano:', {
+        this.debugLog('🔍 Estrutura de dados após mudança de ano:', {
             anosDisponiveis: Object.keys(this.data),
             anoAtual: this.currentYear,
             mesAtual: this.currentMonth,
@@ -2263,7 +2295,7 @@ class ControleGastos {
             currentData = monthData.expenses.filter(item => item.source !== 'credit');
         }
 
-        console.log('📊 Dados filtrados:', currentData);
+        this.debugLog('📊 Dados filtrados:', currentData);
         console.log('📅 Mês atual:', this.currentMonth, 'Ano:', this.currentYear);
 
         // Calcular totais por categoria para gastos do cartão (separado para análise)
@@ -2290,34 +2322,34 @@ class ControleGastos {
         const gastosCartao = creditEssential + creditDesire + creditInvestment;
         const totalExpense = gastosManuais + gastosCartao;
 
-        console.log('🔍 DEBUG - Gastos manuais/mensais:', gastosManuais);
-        console.log('🔍 DEBUG - Gastos do cartão:', gastosCartao);
-        console.log('🔍 DEBUG - Total final:', totalExpense);
+        this.debugLog('🔍 DEBUG - Gastos manuais/mensais:', gastosManuais);
+        this.debugLog('🔍 DEBUG - Gastos do cartão:', gastosCartao);
+        this.debugLog('🔍 DEBUG - Total final:', totalExpense);
 
         // DEBUG: Verificar todos os gastos para entender o problema
-        console.log('🔍 DEBUG - Todos os gastos do mês:', this.currentMonth, this.currentYear);
-        console.log('🔍 DEBUG - Gastos manuais/mensais (sem cartão):', currentData);
-        console.log('🔍 DEBUG - Gastos do cartão (separados):', creditExpenses);
-        console.log('🔍 DEBUG - Total calculado:', totalExpense);
+        this.debugLog('🔍 DEBUG - Todos os gastos do mês:', this.currentMonth, this.currentYear);
+        this.debugLog('🔍 DEBUG - Gastos manuais/mensais (sem cartão):', currentData);
+        this.debugLog('🔍 DEBUG - Gastos do cartão (separados):', creditExpenses);
+        this.debugLog('🔍 DEBUG - Total calculado:', totalExpense);
 
         // Verificar se há gastos duplicados ou com valores incorretos
         const allExpenses = [...currentData, ...creditExpenses];
-        console.log('🔍 DEBUG - Todos os gastos do mês (sem filtro):', allExpenses);
+        this.debugLog('🔍 DEBUG - Todos os gastos do mês (sem filtro):', allExpenses);
 
         // Calcular total manualmente para verificar
         const manualTotal = allExpenses.reduce((sum, item) => sum + item.value, 0);
-        console.log('🔍 DEBUG - Total manual (todos os gastos):', manualTotal);
+        this.debugLog('🔍 DEBUG - Total manual (todos os gastos):', manualTotal);
 
         // Criar linhas de resumo dos gastos do cartão
         let tableContent = '';
 
         // Adicionar resumo dos gastos do cartão se houver
-        console.log('🔍 Verificando resumos do cartão:', { creditEssential, creditDesire, creditInvestment, totalExpense });
-        console.log('🔍 Status salvos dos resumos:', this.data.creditSummaryStatus);
-        console.log('🔍 Condição para mostrar resumos:', creditEssential > 0 || creditDesire > 0 || creditInvestment > 0);
+        this.debugLog('🔍 Verificando resumos do cartão:', { creditEssential, creditDesire, creditInvestment, totalExpense });
+        this.debugLog('🔍 Status salvos dos resumos:', this.data.creditSummaryStatus);
+        this.debugLog('🔍 Condição para mostrar resumos:', creditEssential > 0 || creditDesire > 0 || creditInvestment > 0);
         if (creditEssential > 0 || creditDesire > 0 || creditInvestment > 0) {
             if (creditEssential > 0) {
-                const essentialStatus = this.data.creditSummaryStatus && this.data.creditSummaryStatus['credit-essential'] ? this.data.creditSummaryStatus['credit-essential'] : false;
+                const essentialStatus = this.getCreditSummaryStatus('credit-essential');
                 console.log('💳 Status do resumo Essencial:', essentialStatus);
                 tableContent += `
                     <tr class="credit-summary-row essential">
@@ -2337,7 +2369,7 @@ class ControleGastos {
             }
 
             if (creditDesire > 0) {
-                const desireStatus = this.data.creditSummaryStatus && this.data.creditSummaryStatus['credit-desire'] ? this.data.creditSummaryStatus['credit-desire'] : false;
+                const desireStatus = this.getCreditSummaryStatus('credit-desire');
                 console.log('💳 Status do resumo Desejo:', desireStatus);
                 tableContent += `
                     <tr class="credit-summary-row desire">
@@ -2357,7 +2389,7 @@ class ControleGastos {
             }
 
             if (creditInvestment > 0) {
-                const investmentStatus = this.data.creditSummaryStatus && this.data.creditSummaryStatus['credit-investment'] ? this.data.creditSummaryStatus['credit-investment'] : false;
+                const investmentStatus = this.getCreditSummaryStatus('credit-investment');
                 console.log('💳 Status do resumo Investimento:', investmentStatus);
                 tableContent += `
                     <tr class="credit-summary-row investment">
@@ -2385,8 +2417,8 @@ class ControleGastos {
         );
         const expenseRows = listaOrdenada.map(item => {
             const percentage = totalExpense > 0 ? ((item.value / totalExpense) * 100).toFixed(1) : '0.0';
-            console.log('📝 Renderizando item:', item);
-            console.log('📝 Status pago do item:', item.paid, 'Tipo:', typeof item.paid);
+            this.debugLog('📝 Renderizando item:', item);
+            this.debugLog('📝 Status pago do item:', item.paid, 'Tipo:', typeof item.paid);
 
             // Garantir que a propriedade paid existe
             if (item.paid === undefined) {
@@ -2395,7 +2427,7 @@ class ControleGastos {
 
             return `
                 <tr class="expense-row ${item.category}">
-                    <td>${item.description}</td>
+                    <td>${this.escapeHTML(item.description)}</td>
                     <td>R$ ${item.value.toFixed(2)}</td>
                     <td>${percentage}%</td>
                     <td><span class="category-badge category-${item.category}">${this.getCategoryLabel(item.category)}</span></td>
@@ -2418,8 +2450,8 @@ class ControleGastos {
         });
 
         tableContent += expenseRows.join('');
-        console.log('🎯 HTML final da tabela:', tableContent);
-        console.log('🎯 HTML de uma linha de exemplo:', expenseRows[0] || 'Nenhuma linha gerada');
+        this.debugLog('🎯 HTML final da tabela:', tableContent);
+        this.debugLog('🎯 HTML de uma linha de exemplo:', expenseRows[0] || 'Nenhuma linha gerada');
 
         tbody.innerHTML = tableContent;
 
@@ -2435,7 +2467,7 @@ class ControleGastos {
 
             if (editButtons.length === 0 && deleteButtons.length === 0) {
                 console.warn('⚠️ Nenhum botão foi renderizado (normal se não há dados)');
-                console.log('🔍 Conteúdo da tabela:', tbody.innerHTML);
+                this.debugLog('🔍 Conteúdo da tabela:', tbody.innerHTML);
                 // Removido loop recursivo - não forçar re-renderização
             }
         }, 100);
@@ -2451,16 +2483,16 @@ class ControleGastos {
         }
 
         // Verificar se o total está correto
-        console.log('🔍 FINAL - Total a ser exibido:', totalExpense);
+        this.debugLog('🔍 FINAL - Total a ser exibido:', totalExpense);
 
         // Contar itens: gastos manuais/mensais + resumos do cartão
         const itensManuais = currentData.length;
         const itensCartao = [creditEssential, creditDesire, creditInvestment].filter(valor => valor > 0).length;
         const totalItems = itensManuais + itensCartao;
 
-        console.log('🔍 DEBUG - Itens manuais/mensais:', itensManuais);
-        console.log('🔍 DEBUG - Resumos do cartão:', itensCartao);
-        console.log('🔍 DEBUG - Total de itens:', totalItems);
+        this.debugLog('🔍 DEBUG - Itens manuais/mensais:', itensManuais);
+        this.debugLog('🔍 DEBUG - Resumos do cartão:', itensCartao);
+        this.debugLog('🔍 DEBUG - Total de itens:', totalItems);
 
         console.log('🔍 FINAL - Quantidade de itens:', totalItems);
 
@@ -2521,7 +2553,7 @@ class ControleGastos {
             const percentage = totalCredit > 0 ? ((item.value / totalCredit) * 100).toFixed(1) : '0.0';
             return `
                 <tr class="expense-row ${item.category}">
-                    <td>${item.description}</td>
+                    <td>${this.escapeHTML(item.description)}</td>
                     <td>R$ ${item.value.toFixed(2)}</td>
                     <td>${percentage}%</td>
                     <td><span class="category-badge category-${item.category}">${this.getCategoryLabel(item.category)}</span></td>
@@ -2561,7 +2593,7 @@ class ControleGastos {
             // Calcular total de gastos diários
             const totalDailyExpenses = (monthData.dailyExpenses || []).reduce((sum, item) => sum + item.value, 0);
 
-            console.log('🔍 DEBUG updateSummary - Cálculo do total:', {
+            this.debugLog('🔍 DEBUG updateSummary - Cálculo do total:', {
                 currentMonth: this.currentMonth,
                 currentYear: this.currentYear,
                 isTotal: this.currentMonth === 'total',
@@ -2586,7 +2618,7 @@ class ControleGastos {
 
             // Total Geral = apenas gastos diários registrados (não inclui gastos do cartão)
             const totalGeral = totalDailyExpenses;
-            console.log('💰 Cálculo Total Geral (apenas gastos diários):', {
+            this.debugLog('💰 Cálculo Total Geral (apenas gastos diários):', {
                 dailyExpenses: this.data.dailyExpenses,
                 totalDailyExpenses,
                 totalGeral
@@ -2594,7 +2626,7 @@ class ControleGastos {
 
             // Total restante = Saldo do mês - Total Geral
             const remainingTotal = balance - totalGeral;
-            console.log('💰 Cálculo Total Restante:', { balance, totalGeral, remainingTotal });
+            this.debugLog('💰 Cálculo Total Restante:', { balance, totalGeral, remainingTotal });
 
             // Calcular gasto diário permitido
             let dailyExpense = 0;
@@ -2618,7 +2650,7 @@ class ControleGastos {
                 // Gasto diário = Total restante / Dias restantes
                 if (daysRemaining > 0 && remainingTotal > 0) {
                     dailyExpense = remainingTotal / daysRemaining;
-                    console.log('💰 Cálculo Gasto Diário:', { remainingTotal, daysRemaining, dailyExpense });
+                    this.debugLog('💰 Cálculo Gasto Diário:', { remainingTotal, daysRemaining, dailyExpense });
                 }
             }
 
@@ -2632,12 +2664,12 @@ class ControleGastos {
             const nextPaymentInput = document.getElementById('next-payment-input');
             if (nextPaymentInput) {
                 const chave = `${this.currentYear}-${this.currentMonth}`;
-                console.log('🔍 Atualizando próximo pagamento:', { chave, nextPaymentDates: this.data.nextPaymentDates });
+                this.debugLog('🔍 Atualizando próximo pagamento:', { chave, nextPaymentDates: this.data.nextPaymentDates });
 
                 if (this.data.nextPaymentDates && this.data.nextPaymentDates[chave]) {
                     // Usar data salva
                     nextPaymentInput.value = this.data.nextPaymentDates[chave];
-                    console.log('✅ Próximo pagamento atualizado com data salva:', this.data.nextPaymentDates[chave]);
+                    this.debugLog('✅ Próximo pagamento atualizado com data salva:', this.data.nextPaymentDates[chave]);
                 } else {
                     // Data padrão (29 do mês)
                     const today = new Date();
@@ -2656,7 +2688,7 @@ class ControleGastos {
             const dailyTotalElement = document.getElementById('daily-total');
             if (dailyTotalElement) {
                 dailyTotalElement.textContent = `R$ ${totalGeral.toFixed(2)}`;
-                console.log('✅ Total Geral atualizado:', totalGeral.toFixed(2));
+                this.debugLog('✅ Total Geral atualizado:', totalGeral.toFixed(2));
             }
 
             document.getElementById('remaining-total').textContent = `R$ ${remainingTotal.toFixed(2)}`;
@@ -2718,13 +2750,13 @@ class ControleGastos {
                 });
 
                 disponivelParaMim = meuSalario + totalTransferido;
-                console.log('💰 Dados de renda anual:', { meuSalario, totalTransferido, disponivelParaMim });
+                this.debugLog('💰 Dados de renda anual:', { meuSalario, totalTransferido, disponivelParaMim });
             } else {
                 // Para mês específico, usar dados do mês atual
                 meuSalario = this.rendaFamiliar.meuSalario || 0;
                 totalTransferido = this.rendaFamiliar.totalTransferido || 0;
                 disponivelParaMim = meuSalario + totalTransferido;
-                console.log('💰 Dados de renda mensal:', { meuSalario, totalTransferido, disponivelParaMim });
+                this.debugLog('💰 Dados de renda mensal:', { meuSalario, totalTransferido, disponivelParaMim });
             }
 
             // Obter todos os gastos do mês atual (manuais + cartão)
@@ -2747,7 +2779,7 @@ class ControleGastos {
                         }
                     }
                 });
-                console.log(`📊 Total de gastos do período encontrados: ${currentExpenses.length}`);
+                this.debugLog(`📊 Total de gastos do período encontrados: ${currentExpenses.length}`);
             } else {
                 console.log(`📊 Calculando análise 50/30/20 para ${this.getMonthName(this.currentMonth)}...`);
                 // Para mês específico
@@ -2768,9 +2800,9 @@ class ControleGastos {
             const realInvestment = currentExpenses.filter(item => item.category === 'investment')
                 .reduce((sum, item) => sum + item.value, 0);
 
-            console.log('🎯 Valores ideais:', { idealEssential, idealDesire, idealInvestment });
-            console.log('📊 Valores reais:', { realEssential, realDesire, realInvestment });
-            console.log('📋 Gastos filtrados:', currentExpenses);
+            this.debugLog('🎯 Valores ideais:', { idealEssential, idealDesire, idealInvestment });
+            this.debugLog('📊 Valores reais:', { realEssential, realDesire, realInvestment });
+            this.debugLog('📋 Gastos filtrados:', currentExpenses);
 
             // Atualizar valores
             document.getElementById('essential-ideal').textContent = `R$ ${idealEssential.toFixed(2)}`;
@@ -2901,7 +2933,7 @@ class ControleGastos {
     updateBudgetChart(idealEssential, idealDesire, idealInvestment, realEssential, realDesire, realInvestment) {
         try {
             console.log('📊 Iniciando updateBudgetChart...');
-            console.log('📈 Dados para o gráfico:', { idealEssential, idealDesire, idealInvestment, realEssential, realDesire, realInvestment });
+            this.debugLog('📈 Dados para o gráfico:', { idealEssential, idealDesire, idealInvestment, realEssential, realDesire, realInvestment });
 
             // Verificar se Chart.js está disponível
             if (typeof Chart === 'undefined') {
@@ -2976,7 +3008,7 @@ class ControleGastos {
 
         console.log(`✅ Canvas ${canvasId} encontrado, criando gráfico...`);
 
-        console.log(`🎯 Criando Chart.js para ${categoryName} com dados:`, { ideal, real });
+        this.debugLog(`🎯 Criando Chart.js para ${categoryName} com dados:`, { ideal, real });
 
         try {
             console.log(`🔍 Contexto do canvas:`, ctx);
@@ -3163,23 +3195,47 @@ class ControleGastos {
         const creditDesire = creditExpenses.filter(item => item.category === 'desire').reduce((sum, item) => sum + item.value, 0);
         const creditInvestment = creditExpenses.filter(item => item.category === 'investment').reduce((sum, item) => sum + item.value, 0);
 
-        console.log('📊 Novos totais do cartão:', { creditEssential, creditDesire, creditInvestment });
+        this.debugLog('📊 Novos totais do cartão:', { creditEssential, creditDesire, creditInvestment });
 
         // Se não há mais gastos em uma categoria, remover o status salvo
         if (creditEssential === 0 && this.data.creditSummaryStatus) {
-            delete this.data.creditSummaryStatus['credit-essential'];
+            delete this.data.creditSummaryStatus[this.getCreditSummaryStatusKey('credit-essential')];
         }
         if (creditDesire === 0 && this.data.creditSummaryStatus) {
-            delete this.data.creditSummaryStatus['credit-desire'];
+            delete this.data.creditSummaryStatus[this.getCreditSummaryStatusKey('credit-desire')];
         }
         if (creditInvestment === 0 && this.data.creditSummaryStatus) {
-            delete this.data.creditSummaryStatus['credit-investment'];
+            delete this.data.creditSummaryStatus[this.getCreditSummaryStatusKey('credit-investment')];
         }
 
         // Salvar dados atualizados
         this.saveData();
 
         console.log('✅ Resumos do cartão atualizados');
+    }
+
+    getCreditSummaryStatusKey(id) {
+        if (this.currentMonth === 'total') return id;
+        return `${this.currentYear}-${this.currentMonth}-${id}`;
+    }
+
+    getCreditSummaryStatus(id) {
+        const status = this.data.creditSummaryStatus || {};
+        const monthlyKey = this.getCreditSummaryStatusKey(id);
+
+        if (Object.prototype.hasOwnProperty.call(status, monthlyKey)) {
+            return !!status[monthlyKey];
+        }
+
+        return !!status[id];
+    }
+
+    setCreditSummaryStatus(id, paid) {
+        if (!this.data.creditSummaryStatus) {
+            this.data.creditSummaryStatus = {};
+        }
+
+        this.data.creditSummaryStatus[this.getCreditSummaryStatusKey(id)] = paid;
     }
 
     // Alternar status de pago
@@ -3191,8 +3247,8 @@ class ControleGastos {
             if (!this.data.creditSummaryStatus) {
                 this.data.creditSummaryStatus = {};
             }
-            this.data.creditSummaryStatus[id] = paid;
-            console.log('💳 Status do resumo salvo:', this.data.creditSummaryStatus);
+            this.setCreditSummaryStatus(id, paid);
+            this.debugLog('💳 Status do resumo salvo:', this.data.creditSummaryStatus);
             await this.saveData();
             this.renderAll();
             return;
@@ -3205,8 +3261,8 @@ class ControleGastos {
                 if (!this.data.creditSummaryStatus) {
                     this.data.creditSummaryStatus = {};
                 }
-                this.data.creditSummaryStatus[id] = paid;
-                console.log('💳 Status do resumo salvo:', this.data.creditSummaryStatus);
+                this.setCreditSummaryStatus(id, paid);
+                this.debugLog('💳 Status do resumo salvo:', this.data.creditSummaryStatus);
                 await this.saveData();
                 this.renderAll();
                 return;
@@ -3235,7 +3291,7 @@ class ControleGastos {
 
             if (item) {
                 item.paid = paid;
-                console.log('💰 Status do gasto salvo:', item);
+                this.debugLog('💰 Status do gasto salvo:', item);
                 await this.saveData();
                 this.renderAll();
             }
@@ -3340,9 +3396,9 @@ class ControleGastos {
     // Salvar item
     async saveItem() {
         const description = document.getElementById('description').value;
-        const value = parseFloat(document.getElementById('value').value);
+        const value = this.converterMoedaParaFloat(document.getElementById('value').value);
 
-        console.log('💾 saveItem chamado:', { description, value, editingItem: this.editingItem, currentModalType: this.currentModalType });
+        this.debugLog('💾 saveItem chamado:', { description, value, editingItem: this.editingItem, currentModalType: this.currentModalType });
 
         if (!description || isNaN(value)) {
             alert('Por favor, preencha todos os campos corretamente.');
@@ -3350,7 +3406,7 @@ class ControleGastos {
         }
 
         if (this.editingItem) {
-            console.log('✏️ Editando item existente:', this.editingItem);
+            this.debugLog('✏️ Editando item existente:', this.editingItem);
             // Editar item existente
             this.updateExistingItem(description, value);
         } else {
@@ -3366,7 +3422,7 @@ class ControleGastos {
 
     // Adicionar novo item
     addNewItem(description, value) {
-        console.log('🔍 addNewItem chamado:', { description, value, currentModalType: this.currentModalType, currentMonth: this.currentMonth, currentYear: this.currentYear });
+        this.debugLog('🔍 addNewItem chamado:', { description, value, currentModalType: this.currentModalType, currentMonth: this.currentMonth, currentYear: this.currentYear });
 
         const newId = Date.now();
 
@@ -3383,7 +3439,7 @@ class ControleGastos {
         this.ensureMonthDataExists();
         const monthData = this.getCurrentMonthData();
 
-        console.log('🔍 Dados do mês obtidos:', monthData);
+        this.debugLog('🔍 Dados do mês obtidos:', monthData);
 
         switch (this.currentModalType) {
             case 'expense':
@@ -3436,20 +3492,20 @@ class ControleGastos {
                 break;
         }
 
-        console.log('✅ Item adicionado com sucesso. Dados finais do mês:', monthData);
+        this.debugLog('✅ Item adicionado com sucesso. Dados finais do mês:', monthData);
     }
 
     // Atualizar item existente
     updateExistingItem(description, value) {
         const item = this.editingItem;
-        console.log('🔄 updateExistingItem chamado:', { item, description, value, currentModalType: this.currentModalType });
+        this.debugLog('🔄 updateExistingItem chamado:', { item, description, value, currentModalType: this.currentModalType });
 
         switch (this.currentModalType) {
             case 'expense':
                 item.description = description;
                 item.value = value;
                 item.category = document.getElementById('category').value;
-                console.log('✅ Item de despesa atualizado:', item);
+                this.debugLog('✅ Item de despesa atualizado:', item);
                 // item.paid mantém o valor atual (não alterado via modal)
                 break;
             case 'credit':
@@ -3457,7 +3513,7 @@ class ControleGastos {
                 item.description = description;
                 item.value = value;
                 item.category = document.getElementById('category').value;
-                console.log('✅ Item do cartão atualizado:', item);
+                this.debugLog('✅ Item do cartão atualizado:', item);
                 // item.paid sempre true para cartão
                 break;
             case 'daily':
@@ -3471,7 +3527,7 @@ class ControleGastos {
                 }
                 item.month = parsedDate.month;
                 item.year = parsedDate.year;
-                console.log('✅ Item diário atualizado:', item);
+                this.debugLog('✅ Item diário atualizado:', item);
                 break;
         }
     }
@@ -3517,13 +3573,16 @@ class ControleGastos {
             return;
         }
 
-        console.log('✅ Item encontrado para edição:', item);
+        this.debugLog('✅ Item encontrado para edição:', item);
         this.editingItem = item;
         this.openModal(type);
 
         // Preencher formulário
         document.getElementById('description').value = item.description;
-        document.getElementById('value').value = item.value;
+        document.getElementById('value').value = Number(item.value || 0).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
 
         if (type === 'expense') {
             document.getElementById('category').value = item.category;
@@ -3535,7 +3594,7 @@ class ControleGastos {
             document.getElementById('date').value = item.date;
         }
 
-        console.log('✅ Formulário preenchido com dados do item:', {
+        this.debugLog('✅ Formulário preenchido com dados do item:', {
             description: item.description,
             value: item.value,
             category: item.category
@@ -3594,6 +3653,34 @@ class ControleGastos {
     // Funções de formatação removidas - agora trabalhamos com números simples
 
     // Configurar inputs numéricos com formatação de moeda
+    mascararMoedaAutomatica(valor) {
+        const digitos = (valor || '').toString().replace(/\D/g, '');
+        const numero = parseInt(digitos || '0', 10) / 100;
+
+        return numero.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    converterMoedaParaFloat(valor) {
+        return this.extrairValorNumerico(valor);
+    }
+
+    configurarInputsValores() {
+        const inputs = ['quick-value', 'value'];
+
+        inputs.forEach(id => {
+            const input = document.getElementById(id);
+            if (!input || input.hasAttribute('data-money-mask-setup')) return;
+
+            input.setAttribute('data-money-mask-setup', 'true');
+            input.addEventListener('input', (e) => {
+                e.target.value = this.mascararMoedaAutomatica(e.target.value);
+            });
+        });
+    }
+
     configurarInputsMoeda() {
         const inputs = ['my-salary', 'her-salary', 'total-transferred'];
 
@@ -3601,11 +3688,14 @@ class ControleGastos {
             const input = document.getElementById(id);
 
             if (input) {
+                if (input.hasAttribute('data-money-mask-setup')) return;
+                input.setAttribute('data-money-mask-setup', 'true');
+
                 // Preparar campo para edição ao focar
                 input.addEventListener('focus', () => {
-                    const valorAtual = this.extrairValorNumerico(input.value);
+                    
                     // Mostrar apenas o número sem formatação para edição
-                    input.value = valorAtual.toString().replace('.', ',');
+                    input.value = this.mascararMoedaAutomatica(input.value);
                 });
 
                 // Formatar como moeda quando perder foco
@@ -3613,7 +3703,7 @@ class ControleGastos {
                     if (input.value === '' || input.value.trim() === '') {
                         input.value = 'R$ 0,00';
                     } else {
-                        const valor = this.extrairValorNumerico(input.value);
+                        const valor = this.converterMoedaParaFloat(input.value);
                         if (valor > 0) {
                             input.value = this.formatarMoeda(valor);
                         } else {
@@ -3625,7 +3715,7 @@ class ControleGastos {
 
                 // Formatar em tempo real durante a digitação
                 input.addEventListener('input', (e) => {
-                    let valor = e.target.value.replace(/[^\d,]/g, '');
+                    let valor = this.mascararMoedaAutomatica(e.target.value);
 
                     // Permitir apenas uma vírgula
                     const virgulas = valor.match(/,/g);
@@ -3653,8 +3743,8 @@ class ControleGastos {
 
         // Preparar campo para edição ao focar
         input.addEventListener('focus', () => {
-            const valorAtual = this.extrairValorNumerico(input.value);
-            input.value = valorAtual.toString().replace('.', ',');
+            
+            input.value = this.mascararMoedaAutomatica(input.value);
         });
 
         // Formatar como moeda ao perder foco
@@ -3662,7 +3752,7 @@ class ControleGastos {
             if (input.value === '' || input.value.trim() === '') {
                 input.value = 'R$ 0,00';
             } else {
-                const valor = this.extrairValorNumerico(input.value);
+                const valor = this.converterMoedaParaFloat(input.value);
                 if (valor > 0) {
                     input.value = this.formatarMoeda(valor);
                 } else {
@@ -3674,7 +3764,7 @@ class ControleGastos {
 
         // Formatar em tempo real durante a digitação
         input.addEventListener('input', (e) => {
-            let valor = e.target.value.replace(/[^\d,]/g, '');
+            let valor = this.mascararMoedaAutomatica(e.target.value);
 
             // Permitir apenas uma vírgula
             const virgulas = valor.match(/,/g);
@@ -3716,17 +3806,17 @@ class ControleGastos {
 
     // Formatar valor como moeda brasileira sempre com duas casas decimais
     formatarMoeda(valor) {
-        console.log('🔍 formatarMoeda - valor recebido:', valor, 'tipo:', typeof valor);
+        this.debugLog('🔍 formatarMoeda - valor recebido:', valor, 'tipo:', typeof valor);
 
         // Se o valor for 0 ou undefined, retornar R$ 0,00
         if (!valor || valor === 0) {
-            console.log('🔍 formatarMoeda - retornando R$ 0,00 para valor vazio/zero');
+            this.debugLog('🔍 formatarMoeda - retornando R$ 0,00 para valor vazio/zero');
             return 'R$ 0,00';
         }
 
         // Garantir que o valor seja um número válido
         const numero = parseFloat(valor);
-        console.log('🔍 formatarMoeda - número parseado:', numero);
+        this.debugLog('🔍 formatarMoeda - número parseado:', numero);
 
         if (isNaN(numero)) {
             console.error('❌ formatarMoeda - valor não é um número válido:', valor);
@@ -3741,7 +3831,7 @@ class ControleGastos {
             maximumFractionDigits: 2
         });
 
-        console.log('🔍 formatarMoeda - resultado final:', resultado);
+        this.debugLog('🔍 formatarMoeda - resultado final:', resultado);
         return resultado;
     }
 
@@ -3795,7 +3885,7 @@ class ControleGastos {
             const salarioDela = this.extrairValorNumerico(valorHerSalary) || 0;
             const totalTransferido = this.extrairValorNumerico(valorTotalTransferred) || 0;
 
-            console.log('📊 Valores extraídos:', { meuSalario, salarioDela, totalTransferido });
+            this.debugLog('📊 Valores extraídos:', { meuSalario, salarioDela, totalTransferido });
 
 
 
@@ -3813,7 +3903,7 @@ class ControleGastos {
             // Total sob gestão = Salário Guilherme + Total Transferido
             const disponivelParaMim = Number(meuSalario) + Number(totalTransferido);
 
-            console.log('🧮 Cálculos realizados:', {
+            this.debugLog('🧮 Cálculos realizados:', {
                 despesasDela,
                 disponivelParaMim,
                 formulaDespesas: `${salarioDela} - ${totalTransferido} = ${despesasDela}`,
@@ -3865,7 +3955,7 @@ class ControleGastos {
                 });
 
                 // Verificar se os valores foram salvos corretamente
-                console.log('🔍 Verificação dos valores salvos:', this.rendaFamiliar);
+                this.debugLog('🔍 Verificação dos valores salvos:', this.rendaFamiliar);
             } else {
                 console.error('❌ Elementos de resultado não encontrados:', {
                     'her-expenses': !!herExpensesEl,
@@ -3874,7 +3964,7 @@ class ControleGastos {
             }
 
             // Log para debug
-            console.log('🔍 Valores finais da renda familiar:', this.rendaFamiliar);
+            this.debugLog('🔍 Valores finais da renda familiar:', this.rendaFamiliar);
 
             // Salvar dados
             await this.saveRendaFamiliar();
@@ -4086,7 +4176,7 @@ class ControleGastos {
             await this.saveData();
             this.updateSummary();
 
-            console.log(`💰 Saldo do mês ${chave} atualizado para: ${this.formatarMoeda(valorNumerico)}`);
+            this.debugLog(`💰 Saldo do mês ${chave} atualizado para: ${this.formatarMoeda(valorNumerico)}`);
         }
     }
 
@@ -4215,10 +4305,10 @@ class ControleGastos {
         const valueInput = document.getElementById('quick-value');
 
         const date = dateInput.value;
-        const value = parseFloat(valueInput.value);
+        const value = this.converterMoedaParaFloat(valueInput.value);
 
         console.log('📅 Data selecionada:', date);
-        console.log('💰 Valor inserido:', value);
+        this.debugLog('💰 Valor inserido:', value);
 
         if (!date || !value || value <= 0) {
             alert('Por favor, preencha a data e um valor válido!');
@@ -4252,9 +4342,9 @@ class ControleGastos {
             currentMonth: this.currentMonth
         });
 
-        console.log('📝 Novo gasto criado:', newExpense);
+        this.debugLog('📝 Novo gasto criado:', newExpense);
         console.log('📅 Data original:', date);
-        console.log('📅 Data processada:', newExpense.date);
+        this.debugLog('📅 Data processada:', newExpense.date);
 
         // Garantir que os dados do mês existam
         this.ensureMonthDataExists();
@@ -4289,7 +4379,7 @@ class ControleGastos {
         // Atualizar resumo geral
         this.renderAll();
 
-        console.log('✅ Gasto rápido adicionado:', newExpense);
+        this.debugLog('✅ Gasto rápido adicionado:', newExpense);
     }
 
     // Carregar gastos do dia
@@ -4311,7 +4401,7 @@ class ControleGastos {
             const monthData = this.getCurrentMonthData();
             dailyExpenses = monthData.dailyExpenses || [];
 
-            console.log('🔍 Dados antes do filtro:', {
+            this.debugLog('🔍 Dados antes do filtro:', {
                 currentMonth: this.currentMonth,
                 currentYear: this.currentYear,
                 monthDataPath: `${this.currentYear}.${this.currentMonth}`,
@@ -4320,7 +4410,7 @@ class ControleGastos {
             });
 
             // Log da estrutura completa para debug
-            console.log('🔍 Estrutura completa dos dados:', {
+            this.debugLog('🔍 Estrutura completa dos dados:', {
                 todosOsAnos: Object.keys(this.data).filter(key => !isNaN(key)),
                 anoAtual: this.data[this.currentYear] ? Object.keys(this.data[this.currentYear]) : 'Ano não existe',
                 dadosDoMesAtual: this.data[this.currentYear] && this.data[this.currentYear][this.currentMonth] ? 'Existe' : 'Não existe'
@@ -4332,7 +4422,7 @@ class ControleGastos {
                 // Usar diretamente os campos month e year que foram salvos corretamente
                 const match = expense.month === this.currentMonth && expense.year === this.currentYear;
 
-                console.log(`🔍 Filtro gasto (DEFINITIVO):`, {
+                this.debugLog(`🔍 Filtro gasto (DEFINITIVO):`, {
                     date: expense.date,
                     gastoMonth: expense.month,
                     gastoYear: expense.year,
@@ -4366,7 +4456,7 @@ class ControleGastos {
             dailyTotalElement.textContent = `R$ ${totalValue.toFixed(2)}`;
         }
 
-        console.log('📊 Gastos carregados:', {
+        this.debugLog('📊 Gastos carregados:', {
             month: this.getMonthName(this.currentMonth),
             year: this.currentYear,
             count,
@@ -4382,7 +4472,7 @@ class ControleGastos {
     renderDailyExpensesList(expenses) {
         const container = document.getElementById('daily-expenses-list');
 
-        console.log('🎨 Renderizando lista de gastos:', {
+        this.debugLog('🎨 Renderizando lista de gastos:', {
             containerExists: !!container,
             expensesCount: expenses.length,
             expenses: expenses
@@ -4405,7 +4495,7 @@ class ControleGastos {
             return;
         }
 
-        console.log('📝 Gerando HTML para gastos:', expenses.map(e => ({
+        this.debugLog('📝 Gerando HTML para gastos:', expenses.map(e => ({
             id: e.id,
             date: e.date,
             value: e.value,
@@ -4426,7 +4516,7 @@ class ControleGastos {
             </div>
         `).join('');
 
-        console.log('📝 HTML gerado:', expensesHTML);
+        this.debugLog('📝 HTML gerado:', expensesHTML);
         container.innerHTML = expensesHTML;
         console.log('✅ Lista de gastos renderizada com sucesso');
     }
@@ -4544,8 +4634,8 @@ class ControleGastos {
         // Remover teste - função funcionando
 
         console.log('📅 Mês atual:', this.currentMonth, 'Ano atual:', this.currentYear);
-        console.log('📊 Dados carregados:', this.isDataLoaded);
-        console.log('📊 Dados disponíveis:', this.data ? 'Sim' : 'Não');
+        this.debugLog('📊 Dados carregados:', this.isDataLoaded);
+        this.debugLog('📊 Dados disponíveis:', this.data ? 'Sim' : 'Não');
 
         // Verificar se os dados foram carregados
         if (!this.isDataLoaded || !this.data) {
@@ -4571,8 +4661,8 @@ class ControleGastos {
 
         // Verificar que tipos de gastos existem no mês anterior
         console.log('🔍 Verificando tipos de gastos no mês anterior...');
-        console.log('📋 Gastos mensais:', previousMonthData.expenses ? previousMonthData.expenses.length : 0);
-        console.log('📋 Gastos com cartão:', previousMonthData.creditCard ? previousMonthData.creditCard.length : 0);
+        this.debugLog('📋 Gastos mensais:', previousMonthData.expenses ? previousMonthData.expenses.length : 0);
+        this.debugLog('📋 Gastos com cartão:', previousMonthData.creditCard ? previousMonthData.creditCard.length : 0);
 
         let totalGastosAnterior = 0;
         if (previousMonthData.expenses) totalGastosAnterior += previousMonthData.expenses.length;
@@ -4612,7 +4702,7 @@ class ControleGastos {
 
         // Copiar gastos mensais do mês anterior
         if (previousMonthData.expenses && previousMonthData.expenses.length > 0) {
-            console.log('📋 Copiando', previousMonthData.expenses.length, 'gastos mensais');
+            this.debugLog('📋 Copiando', previousMonthData.expenses.length, 'gastos mensais');
 
             currentMonthData.expenses = [];
             previousMonthData.expenses.forEach(expense => {
@@ -4635,7 +4725,7 @@ class ControleGastos {
 
         // Copiar gastos com cartão do mês anterior
         if (previousMonthData.creditCard && previousMonthData.creditCard.length > 0) {
-            console.log('📋 Copiando', previousMonthData.creditCard.length, 'gastos com cartão');
+            this.debugLog('📋 Copiando', previousMonthData.creditCard.length, 'gastos com cartão');
 
             currentMonthData.creditCard = [];
             previousMonthData.creditCard.forEach(expense => {
@@ -4911,7 +5001,7 @@ class ControleGastos {
         document.getElementById('annual-transferred').textContent = this.formatarMoeda(transferredTotal);
         document.getElementById('annual-available').textContent = this.formatarMoeda(availableTotal);
 
-        console.log('💰 Renda do período calculada:', {
+        this.debugLog('💰 Renda do período calculada:', {
             mySalaryTotal,
             herSalaryTotal,
             transferredTotal,
@@ -4957,7 +5047,7 @@ class ControleGastos {
 
         const html = items.map(item => `
             <div class="annual-summary-item">
-                <h4>${item.description}</h4>
+                <h4>${this.escapeHTML(item.description)}</h4>
                 <div class="category-badge category-${item.category}">${this.getCategoryName(item.category)}</div>
                 <div class="total-value">${this.formatarMoeda(item.total)}</div>
                 <p style="text-align: center; color: var(--text-muted); margin-top: 8px;">
@@ -4967,7 +5057,7 @@ class ControleGastos {
         `).join('');
 
         container.innerHTML = html;
-        console.log('💳 Gastos de cartão do período:', items);
+        this.debugLog('💳 Gastos de cartão do período:', items);
     }
 
     // Renderizar gastos mensais anual (com filtro)
@@ -5006,7 +5096,7 @@ class ControleGastos {
 
         const html = items.map(item => `
             <div class="annual-summary-item">
-                <h4>${item.description}</h4>
+                <h4>${this.escapeHTML(item.description)}</h4>
                 <div class="category-badge category-${item.category}">${this.getCategoryName(item.category)}</div>
                 <div class="total-value">${this.formatarMoeda(item.total)}</div>
                 <p style="text-align: center; color: var(--text-muted); margin-top: 8px;">
@@ -5016,7 +5106,7 @@ class ControleGastos {
         `).join('');
 
         container.innerHTML = html;
-        console.log('📅 Gastos mensais do período:', items);
+        this.debugLog('📅 Gastos mensais do período:', items);
     }
 
     // Obter nome da categoria
@@ -5032,10 +5122,10 @@ class ControleGastos {
     // Obter resumos do cartão para incluir no relatório
     getCreditSummaries() {
         const summaries = [];
-        const creditSummaryStatus = this.data.creditSummaryStatus || {};
+        
 
         // Verificar se há resumos de cartão ativos
-        if (creditSummaryStatus['credit-essential']) {
+        if (this.getCreditSummaryStatus('credit-essential')) {
             const essentialValue = this.calculateCreditCategoryTotal('essential');
             if (essentialValue > 0) {
                 summaries.push({
@@ -5048,7 +5138,7 @@ class ControleGastos {
             }
         }
 
-        if (creditSummaryStatus['credit-desire']) {
+        if (this.getCreditSummaryStatus('credit-desire')) {
             const desireValue = this.calculateCreditCategoryTotal('desire');
             if (desireValue > 0) {
                 summaries.push({
@@ -5061,7 +5151,7 @@ class ControleGastos {
             }
         }
 
-        if (creditSummaryStatus['credit-investment']) {
+        if (this.getCreditSummaryStatus('credit-investment')) {
             const investmentValue = this.calculateCreditCategoryTotal('investment');
             if (investmentValue > 0) {
                 summaries.push({
@@ -5262,7 +5352,7 @@ class ControleGastos {
 
         const html = suggestions.map((suggestion, index) => `
             <div class="suggestion-item" data-index="${index}">
-                <div class="suggestion-name">${suggestion.name}</div>
+                <div class="suggestion-name">${this.escapeHTML(suggestion.name)}</div>
                 <div class="suggestion-info">
                     <span class="suggestion-category ${suggestion.category}">${this.getCategoryName(suggestion.category)}</span>
                     <span class="suggestion-usage">${suggestion.count}x usado</span>
