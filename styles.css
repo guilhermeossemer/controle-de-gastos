@@ -1823,6 +1823,24 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     transition: all 0.1s ease;
 }
 
+.btn-copy-month {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 9px 14px;
+    min-height: 38px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.btn-copy-month:hover {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    background: rgba(102, 126, 234, 0.08);
+    transform: translateY(-1px);
+}
+
 .btn-danger {
     background: var(--color-danger);
     color: white;
@@ -4198,6 +4216,34 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     gap: 15px;
     align-items: start;
     align-content: start;
+}
+
+.daily-expenses-toggle {
+    grid-column: 1 / -1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 42px;
+    margin-top: 6px;
+    background: var(--primary-color);
+    color: #ffffff;
+    border: 1px solid var(--primary-color);
+    border-radius: 10px;
+    font-weight: 700;
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.25);
+}
+
+.daily-expenses-toggle:hover {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+    box-shadow: 0 8px 18px rgba(102, 126, 234, 0.32);
+    transform: translateY(-1px);
+}
+
+.daily-expenses-toggle i {
+    font-size: 0.85rem;
 }
 
 .no-expenses {
@@ -6714,5 +6760,138 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
         width: 32px;
         height: 32px;
         font-size: 1.15rem;
+    }
+}
+
+/* Teste visual: análise 50/30/20 com barras grandes */
+.category-analysis .chart-section {
+    display: none;
+}
+
+.category-analysis .category-card {
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+}
+
+.category-analysis .category-card:hover {
+    transform: translateY(-2px);
+}
+
+.category-analysis .category-card::after,
+.category-analysis .category-header::before {
+    display: none;
+}
+
+.category-analysis .category-header {
+    padding: 18px 20px;
+    justify-content: flex-start;
+    border-radius: 14px 14px 0 0;
+}
+
+.category-analysis .category-content {
+    padding: 22px;
+    background: var(--card-bg);
+}
+
+.category-analysis .summary-section {
+    padding: 0;
+    gap: 16px;
+    background: transparent;
+    border: 0;
+}
+
+.budget-progress {
+    padding: 18px;
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.budget-progress-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.budget-progress-percent {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.budget-progress-text {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.budget-progress-track {
+    height: 16px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.25);
+}
+
+.budget-progress-fill {
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-success);
+    transition: width 0.45s ease;
+}
+
+.budget-progress.is-warning .budget-progress-fill {
+    background: var(--color-warning);
+}
+
+.budget-progress.is-over .budget-progress-fill {
+    background: var(--color-danger);
+}
+
+.budget-progress.is-good .budget-progress-fill {
+    background: var(--color-success);
+}
+
+.category-analysis .budget-summary {
+    gap: 10px;
+}
+
+.category-analysis .budget-row,
+.category-analysis .budget-difference {
+    min-height: 0;
+    height: auto;
+    padding: 12px 16px;
+    border-width: 1px;
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+.category-analysis .budget-row:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.category-analysis .budget-difference .first-line {
+    width: 100%;
+    justify-content: space-between;
+}
+
+.category-analysis .budget-status {
+    border-width: 1px;
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+
+@media (max-width: 768px) {
+    .category-analysis .category-content {
+        padding: 16px;
+    }
+
+    .budget-progress-percent {
+        font-size: 1.7rem;
     }
 }

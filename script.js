@@ -478,6 +478,7 @@ class ControleGastos {
         this.sincronizacaoAutomatica = true;
         this.budgetChart = null;
         this.DEBUG = false;
+        this.showAllDailyExpenses = false;
 
         // Dados da renda familiar (carregados do localStorage)
         this.rendaFamiliar = this.loadRendaFamiliar();
@@ -2812,6 +2813,10 @@ class ControleGastos {
             document.getElementById('investment-ideal').textContent = `R$ ${idealInvestment.toFixed(2)}`;
             document.getElementById('investment-real').textContent = `R$ ${realInvestment.toFixed(2)}`;
 
+            this.updateBudgetProgress('essential', realEssential, idealEssential);
+            this.updateBudgetProgress('desire', realDesire, idealDesire);
+            this.updateBudgetProgress('investment', realInvestment, idealInvestment);
+
             // Calcular e exibir diferenças
             const essentialDiff = idealEssential - realEssential;
             const desireDiff = idealDesire - realDesire;
@@ -2819,21 +2824,21 @@ class ControleGastos {
 
             document.getElementById('essential-difference').innerHTML = `
                 <div class="first-line">
-                    <span class="label">Diferença:</span>
+                    <span class="label">${essentialDiff >= 0 ? 'Sobra:' : 'Excedeu:'}</span>
                     <span class="value ${essentialDiff >= 0 ? 'positive' : 'negative'}">R$ ${Math.abs(essentialDiff).toFixed(2)}</span>
                 </div>
             `;
 
             document.getElementById('desire-difference').innerHTML = `
                 <div class="first-line">
-                    <span class="label">Diferença:</span>
+                    <span class="label">${desireDiff >= 0 ? 'Sobra:' : 'Excedeu:'}</span>
                     <span class="value ${desireDiff >= 0 ? 'positive' : 'negative'}">R$ ${Math.abs(desireDiff).toFixed(2)}</span>
                 </div>
             `;
 
             document.getElementById('investment-difference').innerHTML = `
                 <div class="first-line">
-                    <span class="label">Diferença:</span>
+                    <span class="label">${investmentDiff >= 0 ? 'Falta:' : 'Acima da meta:'}</span>
                     <span class="value ${investmentDiff >= 0 ? 'negative' : 'positive'}">R$ ${Math.abs(investmentDiff).toFixed(2)}</span>
                 </div>
             `;
@@ -2868,6 +2873,29 @@ class ControleGastos {
     }
 
     // Atualizar status do orçamento
+    updateBudgetProgress(category, real, ideal) {
+        const percentEl = document.getElementById(`${category}-percent`);
+        const textEl = document.getElementById(`${category}-progress-text`);
+        const fillEl = document.getElementById(`${category}-progress-fill`);
+        const progressEl = document.getElementById(`${category}-progress`);
+
+        if (!percentEl || !textEl || !fillEl || !progressEl) return;
+
+        const percent = ideal > 0 ? (real / ideal) * 100 : 0;
+        const displayPercent = Math.round(percent);
+        const fillPercent = Math.min(percent, 120);
+
+        percentEl.textContent = `${displayPercent}%`;
+        textEl.textContent = category === 'investment'
+            ? (percent >= 100 ? 'meta atingida' : 'da meta')
+            : (percent > 100 ? 'excedido' : 'usado');
+        fillEl.style.width = `${fillPercent}%`;
+
+        progressEl.classList.toggle('is-over', category !== 'investment' && percent > 100);
+        progressEl.classList.toggle('is-warning', category !== 'investment' && percent >= 85 && percent <= 100);
+        progressEl.classList.toggle('is-good', category === 'investment' ? percent >= 100 : percent < 85);
+    }
+
     updateBudgetStatus(category, real, ideal) {
         try {
             const statusElement = document.getElementById(`${category}-status`);
@@ -4502,7 +4530,14 @@ class ControleGastos {
             formattedDate: this.formatDate(e.date)
         })));
 
-        const expensesHTML = expenses.map(expense => `
+        const dailyExpensesLimit = 3;
+        const isMobileDailyList = window.matchMedia('(max-width: 768px)').matches;
+        const hasHiddenDailyExpenses = isMobileDailyList && expenses.length > dailyExpensesLimit;
+        const visibleExpenses = hasHiddenDailyExpenses && !this.showAllDailyExpenses
+            ? expenses.slice(0, dailyExpensesLimit)
+            : expenses;
+
+        const expensesHTML = visibleExpenses.map(expense => `
             <div class="expense-item" data-id="${expense.id}">
                 <div class="expense-info">
                     <span class="expense-date">${this.formatDate(expense.date)}</span>
@@ -4517,11 +4552,23 @@ class ControleGastos {
         `).join('');
 
         this.debugLog('📝 HTML gerado:', expensesHTML);
-        container.innerHTML = expensesHTML;
+        const toggleHTML = hasHiddenDailyExpenses ? `
+            <button type="button" class="btn daily-expenses-toggle" onclick="app.toggleDailyExpensesList()">
+                <i class="fas fa-${this.showAllDailyExpenses ? 'chevron-up' : 'chevron-down'}"></i>
+                ${this.showAllDailyExpenses ? 'Ver menos' : `Ver todos (${expenses.length})`}
+            </button>
+        ` : '';
+
+        container.innerHTML = expensesHTML + toggleHTML;
         console.log('✅ Lista de gastos renderizada com sucesso');
     }
 
     // Formatar data para exibição
+    toggleDailyExpensesList() {
+        this.showAllDailyExpenses = !this.showAllDailyExpenses;
+        this.loadDailyExpenses();
+    }
+
     formatDate(dateString) {
         try {
             if (!dateString) {

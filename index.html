@@ -568,9 +568,9 @@
             <div class="section-header">
                 <h2><i class="fas fa-minus-circle"></i> Gastos do Mês</h2>
                 <div class="section-actions">
-                    <button class="btn btn-secondary" onclick="app.copyPreviousMonthExpenses()"
+                    <button class="btn btn-copy-month" onclick="app.copyPreviousMonthExpenses()"
                         title="Copiar gastos do mês anterior">
-                        <i class="fas fa-copy"></i> Copiar Mês Anterior
+                        <i class="fas fa-copy"></i> Copiar
                     </button>
                     <button class="btn btn-primary" onclick="openModal('expense')">
                         <i class="fas fa-plus"></i> Adicionar
@@ -711,6 +711,15 @@
                             <canvas id="essentialChart" width="400" height="150"></canvas>
                         </div>
                         <div class="summary-section">
+                            <div class="budget-progress" id="essential-progress">
+                                <div class="budget-progress-head">
+                                    <span class="budget-progress-percent" id="essential-percent">0%</span>
+                                    <span class="budget-progress-text" id="essential-progress-text">usado</span>
+                                </div>
+                                <div class="budget-progress-track">
+                                    <div class="budget-progress-fill" id="essential-progress-fill"></div>
+                                </div>
+                            </div>
                             <div class="budget-summary">
                                 <div class="budget-row">
                                     <span class="label">Orçado:</span>
@@ -743,6 +752,15 @@
                             <canvas id="desireChart" width="400" height="150"></canvas>
                         </div>
                         <div class="summary-section">
+                            <div class="budget-progress" id="desire-progress">
+                                <div class="budget-progress-head">
+                                    <span class="budget-progress-percent" id="desire-percent">0%</span>
+                                    <span class="budget-progress-text" id="desire-progress-text">usado</span>
+                                </div>
+                                <div class="budget-progress-track">
+                                    <div class="budget-progress-fill" id="desire-progress-fill"></div>
+                                </div>
+                            </div>
                             <div class="budget-summary">
                                 <div class="budget-row">
                                     <span class="label">Orçado:</span>
@@ -775,6 +793,15 @@
                             <canvas id="investmentChart" width="400" height="150"></canvas>
                         </div>
                         <div class="summary-section">
+                            <div class="budget-progress" id="investment-progress">
+                                <div class="budget-progress-head">
+                                    <span class="budget-progress-percent" id="investment-percent">0%</span>
+                                    <span class="budget-progress-text" id="investment-progress-text">atingido</span>
+                                </div>
+                                <div class="budget-progress-track">
+                                    <div class="budget-progress-fill" id="investment-progress-fill"></div>
+                                </div>
+                            </div>
                             <div class="budget-summary">
                                 <div class="budget-row">
                                     <span class="label">Orçado:</span>
