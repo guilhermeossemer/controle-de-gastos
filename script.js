@@ -677,6 +677,187 @@ class ControleGastos {
         this.updateChartColors();
     }
 
+    // Exportar relatório em Excel
+    exportarExcel() {
+        const excelBtn = document.querySelector('.btn[onclick="app.exportarExcel()"]');
+        const originalText = excelBtn?.innerHTML;
+
+        try {
+            if (excelBtn) {
+                excelBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando...';
+                excelBtn.disabled = true;
+            }
+
+            const exportData = this.getExcelExportData();
+            const workbook = this.buildExcelWorkbook(exportData);
+            const blob = new Blob(['\ufeff', workbook], {
+                type: 'application/vnd.ms-excel;charset=utf-8;'
+            });
+
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            link.download = `relatorio_gastos_${this.sanitizeFileName(exportData.periodLabel)}_${this.currentYear}.xls`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Erro ao exportar Excel:', error);
+            alert('Não foi possível gerar o Excel. Tente novamente.');
+        } finally {
+            if (excelBtn) {
+                excelBtn.innerHTML = originalText;
+                excelBtn.disabled = false;
+            }
+        }
+    }
+
+    getExcelExportData() {
+        const isTotal = this.currentMonth === 'total';
+        const periodLabel = isTotal ? 'Total do ano' : this.getMonthName(this.currentMonth);
+        const months = isTotal ? Array.from({ length: 12 }, (_, index) => index + 1) : [this.currentMonth];
+        const yearData = this.data?.[this.currentYear] || {};
+
+        const expenses = [];
+        const creditCard = [];
+        const dailyExpenses = [];
+
+        months.forEach(month => {
+            const monthData = yearData[month] || this.createMonthData();
+            const monthName = this.getMonthName(month);
+
+            (monthData.expenses || []).forEach(item => {
+                expenses.push({ ...item, exportMonth: monthName });
+            });
+
+            (monthData.creditCard || []).forEach(item => {
+                creditCard.push({ ...item, exportMonth: monthName });
+            });
+
+            (monthData.dailyExpenses || []).forEach(item => {
+                dailyExpenses.push({ ...item, exportMonth: monthName });
+            });
+        });
+
+        const monthlyTotal = expenses.reduce((sum, item) => sum + Number(item.value || 0), 0);
+        const creditTotal = creditCard.reduce((sum, item) => sum + Number(item.value || 0), 0);
+        const dailyTotal = dailyExpenses.reduce((sum, item) => sum + Number(item.value || 0), 0);
+
+        return {
+            periodLabel,
+            generatedAt: new Date().toLocaleString('pt-BR'),
+            summary: [
+                ['Período', `${periodLabel} ${this.currentYear}`],
+                ['Gerado em', new Date().toLocaleString('pt-BR')],
+                ['Saldo do mês', document.getElementById('month-balance-input')?.value || 'R$ 0,00'],
+                ['Total restante', document.getElementById('remaining-total')?.textContent || 'R$ 0,00'],
+                ['Gasto diário', document.getElementById('daily-expense')?.textContent || 'R$ 0,00'],
+                ['Total gastos mensais', monthlyTotal],
+                ['Total cartão', creditTotal],
+                ['Total gastos diários', dailyTotal],
+                ['Total geral', monthlyTotal + creditTotal + dailyTotal]
+            ],
+            analysis: [
+                ['Categoria', 'Ideal', 'Realizado'],
+                ['Essencial (50%)', document.getElementById('essential-ideal')?.textContent || 'R$ 0,00', document.getElementById('essential-real')?.textContent || 'R$ 0,00'],
+                ['Desejo (30%)', document.getElementById('desire-ideal')?.textContent || 'R$ 0,00', document.getElementById('desire-real')?.textContent || 'R$ 0,00'],
+                ['Investimento (20%)', document.getElementById('investment-ideal')?.textContent || 'R$ 0,00', document.getElementById('investment-real')?.textContent || 'R$ 0,00']
+            ],
+            expenses,
+            creditCard,
+            dailyExpenses
+        };
+    }
+
+    buildExcelWorkbook(exportData) {
+        const worksheets = [
+            this.buildExcelWorksheet('Resumo', exportData.summary),
+            this.buildExcelWorksheet('50-30-20', exportData.analysis),
+            this.buildExcelWorksheet('Gastos Mensais', [
+                ['Mês', 'Descrição', 'Valor', 'Categoria', 'Pago'],
+                ...exportData.expenses.map(item => [
+                    item.exportMonth,
+                    item.description || '',
+                    Number(item.value || 0),
+                    this.getCategoryName(item.category),
+                    item.paid ? 'Sim' : 'Não'
+                ])
+            ]),
+            this.buildExcelWorksheet('Cartão', [
+                ['Mês', 'Descrição', 'Valor', 'Categoria', 'Pago'],
+                ...exportData.creditCard.map(item => [
+                    item.exportMonth,
+                    item.description || '',
+                    Number(item.value || 0),
+                    this.getCategoryName(item.category),
+                    item.paid ? 'Sim' : 'Não'
+                ])
+            ]),
+            this.buildExcelWorksheet('Gastos Diários', [
+                ['Mês', 'Data', 'Valor'],
+                ...exportData.dailyExpenses.map(item => [
+                    item.exportMonth,
+                    this.formatDateSafe(item.date),
+                    Number(item.value || 0)
+                ])
+            ])
+        ].join('');
+
+        return `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Title>Relatório de Gastos</Title>
+  <Author>Controle de Gastos</Author>
+  <Created>${new Date().toISOString()}</Created>
+ </DocumentProperties>
+ <Styles>
+  <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#7C3CFF" ss:Pattern="Solid"/></Style>
+ </Styles>
+ ${worksheets}
+</Workbook>`;
+    }
+
+    buildExcelWorksheet(name, rows) {
+        const safeName = this.escapeXml(String(name).slice(0, 31));
+        const body = rows.map((row, rowIndex) => {
+            const cells = row.map(value => this.buildExcelCell(value, rowIndex === 0)).join('');
+            return `<Row>${cells}</Row>`;
+        }).join('');
+
+        return `<Worksheet ss:Name="${safeName}"><Table>${body}</Table></Worksheet>`;
+    }
+
+    buildExcelCell(value, isHeader = false) {
+        const isNumber = typeof value === 'number' && Number.isFinite(value);
+        const type = isNumber ? 'Number' : 'String';
+        const style = isHeader ? ' ss:StyleID="Header"' : '';
+        const safeValue = isNumber ? String(value) : this.escapeXml(value ?? '');
+        return `<Cell${style}><Data ss:Type="${type}">${safeValue}</Data></Cell>`;
+    }
+
+    escapeXml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+    }
+
+    sanitizeFileName(value) {
+        return String(value || 'relatorio')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '')
+            .toLowerCase();
+    }
+
     async exportarPDF() {
         try {
             // Mostrar indicador de carregamento
