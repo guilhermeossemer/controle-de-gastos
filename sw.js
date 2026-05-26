@@ -1,6 +1,6 @@
 // Service Worker para Controle de Gastos PWA
 
-const CACHE_NAME = 'controle-gastos-v4';
+const CACHE_NAME = 'controle-gastos-v5';
 const urlsToCache = [
   './index.html',
   './styles.css',

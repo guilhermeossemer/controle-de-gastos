@@ -493,8 +493,9 @@ class ControleGastos {
             endMonth: 12
         };
 
-        // Inicializar tema
+        // Inicializar tema e paleta visual
         this.initTheme();
+        this.initPalette();
 
         this.init();
     }
@@ -539,11 +540,29 @@ class ControleGastos {
         }
     }
 
+    // Inicializar paleta
+    initPalette() {
+        const savedPalette = localStorage.getItem('brandPalette') || 'logo';
+        this.setPalette(savedPalette);
+
+        const paletteToggle = document.getElementById('palette-toggle');
+        if (paletteToggle) {
+            paletteToggle.addEventListener('click', () => this.togglePalette());
+        }
+    }
+
     // Alternar tema
     toggleTheme() {
         const currentTheme = document.documentElement.getAttribute('data-theme');
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         this.setTheme(newTheme);
+    }
+
+    // Alternar paleta
+    togglePalette() {
+        const currentPalette = document.documentElement.getAttribute('data-palette') || 'logo';
+        const newPalette = currentPalette === 'legacy' ? 'logo' : 'legacy';
+        this.setPalette(newPalette);
     }
 
     init() {
@@ -638,6 +657,26 @@ class ControleGastos {
     }
 
     // Exportar relatório em PDF
+    // Definir paleta
+    setPalette(palette) {
+        const normalizedPalette = palette === 'legacy' ? 'legacy' : 'logo';
+        document.documentElement.setAttribute('data-palette', normalizedPalette);
+        localStorage.setItem('brandPalette', normalizedPalette);
+
+        const paletteIcon = document.getElementById('palette-icon');
+        if (paletteIcon) {
+            paletteIcon.className = normalizedPalette === 'legacy' ? 'fas fa-undo-alt' : 'fas fa-palette';
+        }
+
+        const paletteToggle = document.getElementById('palette-toggle');
+        if (paletteToggle) {
+            paletteToggle.title = normalizedPalette === 'legacy' ? 'Usar paleta do logo' : 'Usar paleta clássica';
+            paletteToggle.classList.toggle('is-legacy', normalizedPalette === 'legacy');
+        }
+
+        this.updateChartColors();
+    }
+
     async exportarPDF() {
         try {
             // Mostrar indicador de carregamento
@@ -962,14 +1001,14 @@ class ControleGastos {
                     
                     .header {
                         text-align: center;
-                        border-bottom: 3px solid #667eea;
+                        border-bottom: 3px solid #7c3cff;
                         padding-bottom: 20px;
                         margin-bottom: 30px;
                     }
                     
                     .titulo {
                         font-size: 2.5em;
-                        color: #667eea;
+                        color: #7c3cff;
                         margin-bottom: 10px;
                         font-weight: bold;
                     }
@@ -995,8 +1034,8 @@ class ControleGastos {
                     }
                     
                     .secao h3 {
-                        color: #667eea;
-                        border-bottom: 2px solid #667eea;
+                        color: #7c3cff;
+                        border-bottom: 2px solid #7c3cff;
                         padding-bottom: 5px;
                         margin-top: 0;
                     }
@@ -1012,7 +1051,7 @@ class ControleGastos {
                         padding: 8px 12px;
                         background: white;
                         border-radius: 5px;
-                        border-left: 4px solid #667eea;
+                        border-left: 4px solid #7c3cff;
                     }
                     
                     .label {
@@ -1022,7 +1061,7 @@ class ControleGastos {
                     
                     .valor {
                         font-size: 1.2em;
-                        color: #667eea;
+                        color: #7c3cff;
                         font-weight: bold;
                     }
                     
@@ -1049,7 +1088,7 @@ class ControleGastos {
                     }
                     
                     th {
-                        background: #667eea;
+                        background: #7c3cff;
                         color: white;
                         font-weight: bold;
                     }
@@ -1072,7 +1111,7 @@ class ControleGastos {
                     }
                     
                     .botao-imprimir {
-                        background: #667eea;
+                        background: #7c3cff;
                         color: white;
                         border: none;
                         padding: 10px 20px;
@@ -1083,7 +1122,7 @@ class ControleGastos {
                     }
                     
                     .botao-imprimir:hover {
-                        background: #5a67d8;
+                        background: #4f20d8;
                     }
                 </style>
             </head>
