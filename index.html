@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
@@ -240,12 +240,9 @@
                         <div class="banner-actions">
                             <div class="user-info" id="user-info">
                                 <span id="user-email" class="user-email"></span>
-                                <button class="btn-logout" onclick="handleLogout()" title="Sair">
-                                    <i class="fas fa-sign-out-alt"></i>
-                                </button>
                             </div>
-                            <button class="theme-toggle" id="theme-toggle" title="Alternar tema">
-                                <i class="fas fa-moon" id="theme-icon"></i>
+                            <button class="settings-toggle" id="settings-toggle" title="Configurações">
+                                <i class="fas fa-cog"></i>
                             </button>
                             <button class="theme-toggle palette-toggle" id="palette-toggle" title="Usar paleta clássica">
                                 <i class="fas fa-palette" id="palette-icon"></i>
@@ -301,29 +298,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Controles de Sincronização -->
-            <div class="sync-controls">
-                <div class="sync-buttons">
-                    <button class="btn btn-sync" id="sync-now-btn" onclick="app.sincronizarAgora()" disabled>
-                        <i class="fas fa-cloud-upload-alt"></i> Sincronizar
-                    </button>
-                    <button class="btn btn-sync" id="sync-download-btn" onclick="app.baixarDaNuvem()" disabled>
-                        <i class="fas fa-cloud-download-alt"></i> Baixar
-                    </button>
-                </div>
-
-                <div class="sync-status-info">
-                    <div class="sync-status-main">
-                        <i class="fas fa-cloud" style="color: var(--primary-color);"></i>
-                        <span id="sync-status-text">Conectando...</span>
-                    </div>
-                    <div class="sync-status-sub">
-                        <span id="last-sync-time">Verificando última sincronização...</span>
-                    </div>
-                </div>
-            </div>
-
             <!-- Navegação de Ano -->
             <div class="year-navigation">
                 <button class="year-btn" onclick="app.changeYear(-1)" title="Ano anterior">
@@ -833,6 +807,96 @@
 
 
     </div>
+
+    <div class="settings-overlay" id="settings-overlay" hidden></div>
+    <aside class="settings-drawer" id="settings-drawer" aria-hidden="true" aria-labelledby="settings-title">
+        <div class="settings-drawer-header">
+            <div>
+                <span class="settings-kicker">Configurações</span>
+                <h2 id="settings-title">Preferências</h2>
+            </div>
+            <button class="settings-close" id="settings-close" title="Fechar configurações">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="settings-section">
+            <h3>Aparência</h3>
+            <div class="settings-field">
+                <span>Tema</span>
+                <div class="segmented-control" role="group" aria-label="Tema">
+                    <button type="button" class="segment-option" data-theme-choice="light">Claro</button>
+                    <button type="button" class="segment-option" data-theme-choice="dark">Escuro</button>
+                </div>
+            </div>
+            <div class="settings-field">
+                <span>Cor do app</span>
+                <div class="accent-options" role="group" aria-label="Cor do app">
+                    <button type="button" class="accent-option" data-accent-theme="default">
+                        <span class="accent-swatch accent-default"></span>Padrão
+                    </button>
+                    <button type="button" class="accent-option" data-accent-theme="finance">
+                        <span class="accent-swatch accent-finance"></span>Verde financeiro
+                    </button>
+                    <button type="button" class="accent-option" data-accent-theme="fintech">
+                        <span class="accent-swatch accent-fintech"></span>Azul fintech
+                    </button>
+                    <button type="button" class="accent-option" data-accent-theme="premium">
+                        <span class="accent-swatch accent-premium"></span>Roxo premium
+                    </button>
+                    <button type="button" class="accent-option" data-accent-theme="neutral">
+                        <span class="accent-swatch accent-neutral"></span>Neutro
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h3>Privacidade</h3>
+            <label class="switch-row" for="hide-values-toggle">
+                <span>Esconder valores</span>
+                <input type="checkbox" id="hide-values-toggle">
+                <span class="switch-track" aria-hidden="true"></span>
+            </label>
+        </div>
+
+        <div class="settings-section settings-sync-section">
+            <h3>Sincronização</h3>
+            <div class="sync-controls settings-sync-controls">
+                <div class="sync-buttons">
+                    <button class="btn btn-sync" id="sync-now-btn" onclick="app.sincronizarAgora()" disabled>
+                        <i class="fas fa-cloud-upload-alt"></i> Enviar para nuvem
+                    </button>
+                    <button class="btn btn-sync" id="sync-download-btn" onclick="app.baixarDaNuvem()" disabled>
+                        <i class="fas fa-cloud-download-alt"></i> Baixar da nuvem
+                    </button>
+                </div>
+
+                <div class="sync-status-info">
+                    <div class="sync-status-main">
+                        <i class="fas fa-cloud" style="color: var(--primary-color);"></i>
+                        <span id="sync-status-text">Conectando...</span>
+                    </div>
+                    <div class="sync-status-sub">
+                        <span id="last-sync-time">Verificando última sincronização...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section account-section">
+            <h3>Conta</h3>
+            <div class="settings-user">
+                <i class="fas fa-user-circle"></i>
+                <span id="settings-user-email">Usuário conectado</span>
+            </div>
+        </div>
+
+        <button class="settings-logout" type="button" onclick="handleLogout()">
+            <i class="fas fa-sign-out-alt"></i>
+            Sair do sistema
+        </button>
+    </aside>
 
     <!-- Modal para adicionar/editar itens -->
     <div id="modal" class="modal">

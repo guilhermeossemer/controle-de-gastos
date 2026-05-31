@@ -91,7 +91,6 @@ function handleAuthStateChanged(user) {
             // Usar displayName se disponível, senão usar email
             const displayName = user.displayName || user.email;
             userEmailElement.textContent = displayName;
-
             // Se não tem displayName, tentar buscar no Firestore
             if (!user.displayName) {
                 loadUserDisplayName(user.uid);
@@ -479,6 +478,10 @@ class ControleGastos {
         this.budgetChart = null;
         this.DEBUG = false;
         this.showAllDailyExpenses = false;
+        this.hideValues = localStorage.getItem('hideValues') === 'true';
+        this.valueMaskObserver = null;
+        this.valueMaskTimer = null;
+        this.isApplyingValueMask = false;
 
         // Dados da renda familiar (carregados do localStorage)
         this.rendaFamiliar = this.loadRendaFamiliar();
@@ -493,9 +496,11 @@ class ControleGastos {
             endMonth: 12
         };
 
-        // Inicializar tema e paleta visual
+        // Inicializar preferências visuais
         this.initTheme();
         this.initPalette();
+        this.initPrivacyMode();
+        this.initSettingsDrawer();
 
         this.init();
     }
@@ -538,17 +543,60 @@ class ControleGastos {
         if (themeToggle) {
             themeToggle.addEventListener('click', () => this.toggleTheme());
         }
+
+        document.querySelectorAll('[data-theme-choice]').forEach(button => {
+            button.addEventListener('click', () => this.setTheme(button.dataset.themeChoice));
+        });
     }
 
     // Inicializar paleta
     initPalette() {
-        const savedPalette = localStorage.getItem('brandPalette') || 'logo';
-        this.setPalette(savedPalette);
+        const savedAccentTheme = localStorage.getItem('accentTheme') || 'default';
+        this.setAccentTheme(savedAccentTheme);
 
         const paletteToggle = document.getElementById('palette-toggle');
         if (paletteToggle) {
             paletteToggle.addEventListener('click', () => this.togglePalette());
         }
+
+        document.querySelectorAll('[data-accent-theme]').forEach(button => {
+            button.addEventListener('click', () => this.setAccentTheme(button.dataset.accentTheme));
+        });
+    }
+
+    // Inicializar modo de privacidade visual
+    initPrivacyMode() {
+        const hideValuesToggle = document.getElementById('hide-values-toggle');
+        if (hideValuesToggle) {
+            hideValuesToggle.checked = this.hideValues;
+            hideValuesToggle.addEventListener('change', () => this.setHideValues(hideValuesToggle.checked));
+        }
+
+        this.setHideValues(this.hideValues, false);
+        this.setupValueMaskObserver();
+    }
+
+    // Inicializar menu lateral de configurações
+    initSettingsDrawer() {
+        const settingsToggle = document.getElementById('settings-toggle');
+        const settingsClose = document.getElementById('settings-close');
+        const settingsOverlay = document.getElementById('settings-overlay');
+
+        if (settingsToggle) {
+            settingsToggle.addEventListener('click', () => this.openSettingsDrawer());
+        }
+        if (settingsClose) {
+            settingsClose.addEventListener('click', () => this.closeSettingsDrawer());
+        }
+        if (settingsOverlay) {
+            settingsOverlay.addEventListener('click', () => this.closeSettingsDrawer());
+        }
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') this.closeSettingsDrawer();
+        });
+
+        this.updateSettingsUser();
     }
 
     // Alternar tema
@@ -560,9 +608,8 @@ class ControleGastos {
 
     // Alternar paleta
     togglePalette() {
-        const currentPalette = document.documentElement.getAttribute('data-palette') || 'logo';
-        const newPalette = currentPalette === 'legacy' ? 'logo' : 'legacy';
-        this.setPalette(newPalette);
+        const currentTheme = document.documentElement.getAttribute('data-accent-theme') || 'default';
+        this.setAccentTheme(currentTheme === 'premium' ? 'default' : 'premium');
     }
 
     init() {
@@ -648,6 +695,10 @@ class ControleGastos {
         }
 
         // Forçar atualização do CSS
+        document.querySelectorAll('[data-theme-choice]').forEach(button => {
+            button.classList.toggle('is-active', button.dataset.themeChoice === theme);
+        });
+
         document.body.style.display = 'none';
         document.body.offsetHeight; // Trigger reflow
         document.body.style.display = '';
@@ -658,6 +709,19 @@ class ControleGastos {
 
     // Exportar relatório em PDF
     // Definir paleta
+    setAccentTheme(theme) {
+        const allowedThemes = ['default', 'finance', 'fintech', 'premium', 'neutral'];
+        const normalizedTheme = allowedThemes.includes(theme) ? theme : 'default';
+        document.documentElement.setAttribute('data-accent-theme', normalizedTheme);
+        localStorage.setItem('accentTheme', normalizedTheme);
+
+        document.querySelectorAll('[data-accent-theme]').forEach(button => {
+            button.classList.toggle('is-active', button.dataset.accentTheme === normalizedTheme);
+        });
+
+        this.updateChartColors();
+    }
+
     setPalette(palette) {
         const normalizedPalette = palette === 'legacy' ? 'legacy' : 'logo';
         document.documentElement.setAttribute('data-palette', normalizedPalette);
@@ -678,6 +742,124 @@ class ControleGastos {
     }
 
     // Exportar relatório em Excel
+    openSettingsDrawer() {
+        const drawer = document.getElementById('settings-drawer');
+        const overlay = document.getElementById('settings-overlay');
+        this.updateSettingsUser();
+
+        if (drawer) {
+            drawer.classList.add('is-open');
+            drawer.setAttribute('aria-hidden', 'false');
+        }
+        if (overlay) {
+            overlay.hidden = false;
+            requestAnimationFrame(() => overlay.classList.add('is-open'));
+        }
+    }
+
+    closeSettingsDrawer() {
+        const drawer = document.getElementById('settings-drawer');
+        const overlay = document.getElementById('settings-overlay');
+
+        if (drawer) {
+            drawer.classList.remove('is-open');
+            drawer.setAttribute('aria-hidden', 'true');
+        }
+        if (overlay) {
+            overlay.classList.remove('is-open');
+            setTimeout(() => {
+                if (!overlay.classList.contains('is-open')) overlay.hidden = true;
+            }, 250);
+        }
+    }
+
+    updateSettingsUser() {
+        const settingsUserEmail = document.getElementById('settings-user-email');
+        if (!settingsUserEmail) return;
+
+        const visibleEmail = document.getElementById('user-email')?.textContent?.trim();
+        settingsUserEmail.textContent = visibleEmail || currentUser?.email || currentUser?.displayName || 'Usuário conectado';
+    }
+
+    setHideValues(hideValues, persist = true) {
+        this.hideValues = Boolean(hideValues);
+        document.documentElement.setAttribute('data-hide-values', String(this.hideValues));
+
+        const hideValuesToggle = document.getElementById('hide-values-toggle');
+        if (hideValuesToggle) hideValuesToggle.checked = this.hideValues;
+
+        if (persist) {
+            localStorage.setItem('hideValues', String(this.hideValues));
+        }
+
+        this.scheduleValueMask();
+    }
+
+    formatValueForDisplay(value) {
+        if (this.hideValues) return 'R$ •••••';
+        return this.formatarMoeda(value);
+    }
+
+    setupValueMaskObserver() {
+        const appContainer = document.getElementById('app-container');
+        if (!appContainer || this.valueMaskObserver) return;
+
+        this.valueMaskObserver = new MutationObserver(() => {
+            if (!this.isApplyingValueMask) this.scheduleValueMask();
+        });
+        this.valueMaskObserver.observe(appContainer, {
+            childList: true,
+            subtree: true,
+            characterData: true
+        });
+    }
+
+    scheduleValueMask() {
+        clearTimeout(this.valueMaskTimer);
+        this.valueMaskTimer = setTimeout(() => this.applyValueMask(), 50);
+    }
+
+    applyValueMask() {
+        const appContainer = document.getElementById('app-container');
+        if (!appContainer) return;
+
+        this.isApplyingValueMask = true;
+        if (this.valueMaskObserver) this.valueMaskObserver.disconnect();
+
+        appContainer.querySelectorAll('[data-hide-values-raw]').forEach(element => {
+            element.textContent = element.dataset.hideValuesRaw;
+            delete element.dataset.hideValuesRaw;
+        });
+
+        if (this.hideValues) {
+            appContainer.querySelectorAll('*').forEach(element => {
+                if (element.children.length > 0) return;
+                if (['INPUT', 'TEXTAREA', 'SELECT', 'SCRIPT', 'STYLE'].includes(element.tagName)) return;
+
+                const text = element.textContent || '';
+                if (!/R\$\s*-?[\d.,]+/.test(text)) return;
+
+                element.dataset.hideValuesRaw = text;
+                element.textContent = text.replace(/R\$\s*-?[\d.,]+/g, 'R$ •••••');
+            });
+        }
+
+        this.isApplyingValueMask = false;
+        if (this.valueMaskObserver) {
+            this.valueMaskObserver.observe(appContainer, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+        }
+    }
+
+    getElementTextValue(id, fallback = '') {
+        const element = document.getElementById(id);
+        if (!element) return fallback;
+        return element.dataset.hideValuesRaw || element.textContent || fallback;
+    }
+
     exportarExcel() {
         const excelBtn = document.querySelector('.btn[onclick="app.exportarExcel()"]');
         const originalText = excelBtn?.innerHTML;
@@ -751,8 +933,8 @@ class ControleGastos {
                 ['Período', `${periodLabel} ${this.currentYear}`],
                 ['Gerado em', new Date().toLocaleString('pt-BR')],
                 ['Saldo do mês', document.getElementById('month-balance-input')?.value || 'R$ 0,00'],
-                ['Total restante', document.getElementById('remaining-total')?.textContent || 'R$ 0,00'],
-                ['Gasto diário', document.getElementById('daily-expense')?.textContent || 'R$ 0,00'],
+                ['Total restante', this.getElementTextValue('remaining-total', 'R$ 0,00')],
+                ['Gasto diário', this.getElementTextValue('daily-expense', 'R$ 0,00')],
                 ['Total gastos mensais', monthlyTotal],
                 ['Total cartão', creditTotal],
                 ['Total gastos diários', dailyTotal],
@@ -760,9 +942,9 @@ class ControleGastos {
             ],
             analysis: [
                 ['Categoria', 'Ideal', 'Realizado'],
-                ['Essencial (50%)', document.getElementById('essential-ideal')?.textContent || 'R$ 0,00', document.getElementById('essential-real')?.textContent || 'R$ 0,00'],
-                ['Desejo (30%)', document.getElementById('desire-ideal')?.textContent || 'R$ 0,00', document.getElementById('desire-real')?.textContent || 'R$ 0,00'],
-                ['Investimento (20%)', document.getElementById('investment-ideal')?.textContent || 'R$ 0,00', document.getElementById('investment-real')?.textContent || 'R$ 0,00']
+                ['Essencial (50%)', this.getElementTextValue('essential-ideal', 'R$ 0,00'), this.getElementTextValue('essential-real', 'R$ 0,00')],
+                ['Desejo (30%)', this.getElementTextValue('desire-ideal', 'R$ 0,00'), this.getElementTextValue('desire-real', 'R$ 0,00')],
+                ['Investimento (20%)', this.getElementTextValue('investment-ideal', 'R$ 0,00'), this.getElementTextValue('investment-real', 'R$ 0,00')]
             ],
             expenses,
             creditCard,
@@ -924,8 +1106,8 @@ class ControleGastos {
 
             // Dados do resumo
             const saldoMes = this.extrairValorNumerico(document.getElementById('month-balance-input')?.value || 0);
-            const totalRestante = document.getElementById('remaining-total')?.textContent || 'R$ 0,00';
-            const gastoDiario = document.getElementById('daily-expense')?.textContent || 'R$ 0,00';
+            const totalRestante = this.getElementTextValue('remaining-total', 'R$ 0,00');
+            const gastoDiario = this.getElementTextValue('daily-expense', 'R$ 0,00');
 
             doc.setFontSize(12);
             doc.setFont('helvetica', 'normal');
@@ -942,12 +1124,12 @@ class ControleGastos {
             doc.text('Análise 50/30/20', margin, yPosition);
             yPosition += 10;
 
-            const essentialIdeal = document.getElementById('essential-ideal')?.textContent || 'R$ 0,00';
-            const essentialReal = document.getElementById('essential-real')?.textContent || 'R$ 0,00';
-            const desireIdeal = document.getElementById('desire-ideal')?.textContent || 'R$ 0,00';
-            const desireReal = document.getElementById('desire-real')?.textContent || 'R$ 0,00';
-            const investmentIdeal = document.getElementById('investment-ideal')?.textContent || 'R$ 0,00';
-            const investmentReal = document.getElementById('investment-real')?.textContent || 'R$ 0,00';
+            const essentialIdeal = this.getElementTextValue('essential-ideal', 'R$ 0,00');
+            const essentialReal = this.getElementTextValue('essential-real', 'R$ 0,00');
+            const desireIdeal = this.getElementTextValue('desire-ideal', 'R$ 0,00');
+            const desireReal = this.getElementTextValue('desire-real', 'R$ 0,00');
+            const investmentIdeal = this.getElementTextValue('investment-ideal', 'R$ 0,00');
+            const investmentReal = this.getElementTextValue('investment-real', 'R$ 0,00');
 
             doc.setFontSize(12);
             doc.setFont('helvetica', 'normal');
@@ -1358,7 +1540,7 @@ class ControleGastos {
                         </div>
                         <div class="item-resumo">
                             <div class="label">Total Restante:</div>
-                            <div class="valor ${parseFloat(document.getElementById('remaining-total')?.textContent?.replace(/[^\d,-]/g, '').replace(',', '.') || 0) >= 0 ? 'positivo' : 'negativo'}">${document.getElementById('remaining-total')?.textContent || 'R$ 0,00'}</div>
+                            <div class="valor ${parseFloat(this.getElementTextValue('remaining-total', 'R$ 0,00').replace(/[^\d,-]/g, '').replace(',', '.') || 0) >= 0 ? 'positivo' : 'negativo'}">${this.getElementTextValue('remaining-total', 'R$ 0,00')}</div>
                         </div>
                     </div>
                 </div>
@@ -1369,22 +1551,22 @@ class ControleGastos {
                         <div class="item-resumo">
                             <div class="label">🏠 Essencial (50%):</div>
                             <div class="valor categoria-essential">
-                                Ideal: ${document.getElementById('essential-ideal')?.textContent || 'R$ 0,00'}<br>
-                                Real: ${document.getElementById('essential-real')?.textContent || 'R$ 0,00'}
+                                Ideal: ${this.getElementTextValue('essential-ideal', 'R$ 0,00')}<br>
+                                Real: ${this.getElementTextValue('essential-real', 'R$ 0,00')}
                             </div>
                         </div>
                         <div class="item-resumo">
                             <div class="label">❤️ Desejo (30%):</div>
                             <div class="valor categoria-desire">
-                                Ideal: ${document.getElementById('desire-ideal')?.textContent || 'R$ 0,00'}<br>
-                                Real: ${document.getElementById('desire-real')?.textContent || 'R$ 0,00'}
+                                Ideal: ${this.getElementTextValue('desire-ideal', 'R$ 0,00')}<br>
+                                Real: ${this.getElementTextValue('desire-real', 'R$ 0,00')}
                             </div>
                         </div>
                         <div class="item-resumo">
                             <div class="label">📈 Investimento (20%):</div>
                             <div class="valor categoria-investment">
-                                Ideal: ${document.getElementById('investment-ideal')?.textContent || 'R$ 0,00'}<br>
-                                Real: ${document.getElementById('investment-real')?.textContent || 'R$ 0,00'}
+                                Ideal: ${this.getElementTextValue('investment-ideal', 'R$ 0,00')}<br>
+                                Real: ${this.getElementTextValue('investment-real', 'R$ 0,00')}
                             </div>
                         </div>
                     </div>
