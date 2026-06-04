@@ -1,6 +1,6 @@
 // Service Worker para Controle de Gastos PWA
 
-const CACHE_NAME = 'controle-gastos-v9';
+const CACHE_NAME = 'controle-gastos-v10';
 const urlsToCache = [
   './index.html',
   './styles.css',
@@ -59,9 +59,13 @@ self.addEventListener('fetch', event => {
   }
 
   event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request);
-    })
+    fetch(event.request)
+      .then(response => {
+        const responseCopy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseCopy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
 

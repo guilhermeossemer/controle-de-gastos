@@ -1244,11 +1244,60 @@ select:focus {
     gap: 10px;
 }
 
-.settings-field>span,
+.settings-field>span:first-child,
 .switch-row>span:first-child {
     color: var(--text-secondary);
     font-weight: 700;
     font-size: 0.92rem;
+}
+
+.settings-field small {
+    color: var(--text-muted);
+    font-size: 0.74rem;
+    line-height: 1.45;
+}
+
+.settings-money-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding-left: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    font-weight: 700;
+    overflow: hidden;
+}
+
+.settings-money-control:focus-within {
+    border-color: var(--primary-color);
+}
+
+.settings-money-control input {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px 10px 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    appearance: textfield;
+}
+
+.settings-money-control input:focus {
+    border: 0;
+    outline: 0;
+    box-shadow: none;
+}
+
+.settings-money-control input::-webkit-inner-spin-button,
+.settings-money-control input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .segmented-control {
@@ -1409,49 +1458,242 @@ select:focus {
     filter: brightness(0.95);
 }
 
-.settings-sync-controls {
-    margin: 0;
-    padding: 10px;
-    border-radius: 10px;
-    display: block !important;
-    transform: none;
-    overflow: visible;
+.settings-backup-section {
+    gap: 12px;
 }
 
-.settings-sync-controls:hover {
+.settings-backup-heading {
+    display: grid;
+    gap: 4px;
+}
+
+.settings-backup-heading p,
+.settings-backup-note {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.74rem;
+    line-height: 1.45;
+}
+
+.settings-backup-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.settings-backup-btn {
+    width: 100%;
+    min-height: 42px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    box-shadow: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 9px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-align: left;
+    transition: none;
+    animation: none;
+}
+
+.settings-backup-btn:hover,
+.settings-backup-btn:active {
+    border-color: var(--primary-color);
+    background: rgba(var(--primary-rgb), 0.1);
+    box-shadow: none;
     transform: none;
+}
+
+.settings-backup-btn:focus-visible {
+    outline: 2px solid rgba(var(--primary-rgb), 0.45);
+    outline-offset: 2px;
+}
+
+.settings-backup-btn i {
+    width: 18px;
+    color: var(--primary-color);
+    font-size: 0.92rem;
+    text-align: center;
+}
+
+.settings-backup-primary {
+    border-color: transparent;
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.settings-backup-primary:hover,
+.settings-backup-primary:active {
+    border-color: transparent;
+    background: var(--primary-dark);
+}
+
+.settings-backup-primary i {
+    color: currentColor;
+}
+
+.settings-backup-status {
+    min-height: 18px;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.settings-backup-status.is-success {
+    color: var(--color-success);
+}
+
+.settings-backup-status.is-error {
+    color: var(--color-danger);
+}
+
+.settings-sync-section {
+    gap: 12px;
+}
+
+.settings-sync-heading {
+    display: grid;
+    gap: 4px;
+}
+
+.settings-sync-heading p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.settings-sync-section .settings-sync-controls {
+    margin: 0;
+    padding: 12px;
+    border: 1px solid rgba(var(--primary-rgb), 0.24);
+    border-radius: 12px;
+    background: rgba(var(--primary-rgb), 0.06);
+    box-shadow: none;
+    backdrop-filter: none;
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    transform: none;
+    transition: none;
+    overflow: hidden;
+}
+
+.settings-sync-section .settings-sync-controls::before {
+    display: none;
+    animation: none;
+}
+
+.settings-sync-section .settings-sync-controls:hover {
+    transform: none;
+    box-shadow: none;
 }
 
 .settings-sync-controls .sync-buttons {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 7px;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin: 0;
 }
 
 .settings-sync-controls .btn-sync {
     width: 100%;
     min-width: 0;
-    padding: 9px 10px;
+    min-height: 42px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
     border-radius: 8px;
+    background: var(--primary-color);
+    color: #fff;
+    box-shadow: none !important;
     font-size: 0.82rem;
-    justify-content: center;
+    font-weight: 700;
+    justify-content: flex-start;
+    transition: none !important;
+    animation: none !important;
+}
+
+.settings-sync-controls .btn-sync::before {
+    display: none;
+    transition: none;
+}
+
+.settings-sync-controls .btn-sync:hover,
+.settings-sync-controls .btn-sync:active {
+    background: var(--primary-dark);
+    box-shadow: none !important;
+    transform: none;
+}
+
+.settings-sync-controls .btn-sync:focus-visible {
+    outline: 2px solid rgba(var(--primary-rgb), 0.45);
+    outline-offset: 2px;
+}
+
+.settings-sync-controls .btn-sync:disabled,
+.settings-sync-controls .btn-sync:disabled:hover {
+    background: rgba(var(--primary-rgb), 0.1);
+    border-color: rgba(var(--primary-rgb), 0.2);
+    color: var(--text-muted);
+    box-shadow: none !important;
+    cursor: not-allowed;
+    opacity: 1;
+    transform: none;
+}
+
+.settings-sync-controls .btn-sync.syncing,
+.settings-sync-controls .btn-sync.syncing i {
+    animation: none !important;
+}
+
+.settings-sync-controls .btn-sync i,
+.settings-sync-controls .btn-sync:hover i {
+    width: 18px;
+    color: currentColor;
+    font-size: 0.92rem;
+    text-align: center;
+    transform: none;
+    transition: none;
 }
 
 .settings-sync-controls .sync-status-info {
-    text-align: left;
     width: 100%;
     min-width: 0;
+    padding-top: 11px;
+    border-top: 1px solid rgba(var(--primary-rgb), 0.18);
+    align-items: stretch;
+    gap: 6px;
+    text-align: left;
 }
 
 .settings-sync-controls .sync-status-main {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+    color: var(--text-secondary);
     font-size: 0.82rem;
     font-weight: 700;
-    min-width: 0;
     justify-content: flex-start;
+}
+
+.settings-sync-controls .sync-status-main i {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(var(--primary-rgb), 0.12);
+    color: var(--primary-color);
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    font-size: 0.72rem;
 }
 
 .settings-sync-controls #sync-status-text {
@@ -1461,11 +1703,13 @@ select:focus {
 }
 
 .settings-sync-controls .sync-status-sub {
-    margin-top: 4px;
-    font-size: 0.74rem;
+    margin: 0;
+    padding-left: 32px;
     color: var(--text-muted);
+    font-size: 0.72rem;
+    line-height: 1.4;
+    opacity: 1;
     white-space: normal;
-    line-height: 1.35;
 }
 
 /* Controles de Sincronização */
@@ -1773,6 +2017,12 @@ select:focus {
 .income-item input:focus {
     outline: none;
     border-color: var(--primary-color);
+}
+
+[data-hide-values="true"] .income-item input[data-private-value] {
+    -webkit-text-security: disc;
+    text-security: disc;
+    letter-spacing: 0.12em;
 }
 
 .calculation-item {
@@ -7352,5 +7602,490 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
     .budget-progress-percent {
         font-size: 1.7rem;
+    }
+}
+
+/* Lista compacta expansível para gastos no mobile */
+.mobile-row-toggle,
+.mobile-paid-label,
+.mobile-status-action-text,
+.mobile-expanded-status-action,
+.mobile-action-label {
+    display: none;
+}
+
+@media (max-width: 768px) {
+
+    #cartao-credito-section .section-header,
+    #gastos-mes-section .section-header {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    #cartao-credito-section .section-header h2,
+    #gastos-mes-section .section-header h2 {
+        gap: 8px;
+        font-size: 1.08rem;
+        line-height: 1.25;
+    }
+
+    #cartao-credito-section .section-header .btn,
+    #gastos-mes-section .section-header .btn {
+        min-height: 40px;
+        padding: 9px 12px;
+        font-size: 0.78rem;
+    }
+
+    #cartao-credito-section .section-header>.btn,
+    #gastos-mes-section .section-actions {
+        margin-left: auto;
+    }
+
+    #cartao-credito-section .section-header>.btn,
+    #gastos-mes-section .section-actions,
+    #gastos-mes-section .section-actions .btn {
+        width: auto;
+    }
+
+    #gastos-mes-section .section-actions {
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    #cartao-credito-section .table-container,
+    #gastos-mes-section .table-container {
+        margin: 0;
+        padding: 0;
+        overflow: visible;
+    }
+
+    #cartao-credito-section .data-table,
+    #gastos-mes-section .data-table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+        table-layout: auto;
+    }
+
+    #cartao-credito-section .data-table thead,
+    #gastos-mes-section .data-table thead {
+        display: none;
+    }
+
+    #cartao-credito-section .data-table tbody,
+    #gastos-mes-section .data-table tbody {
+        display: grid;
+        gap: 10px;
+    }
+
+    #cartao-credito-section .mobile-expandable-row,
+    #gastos-mes-section .mobile-expandable-row,
+    #gastos-mes-section .mobile-summary-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            "description description value"
+            "category percentage status"
+            "actions actions actions";
+        gap: 10px 12px;
+        width: 100%;
+        height: auto;
+        min-height: 76px;
+        padding: 14px 13px;
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        border-left-width: 3px;
+        border-radius: 12px;
+        background: var(--card-bg);
+        cursor: pointer;
+        transform: none;
+        position: relative;
+    }
+
+    #gastos-mes-section .mobile-summary-row {
+        cursor: default;
+    }
+
+    #cartao-credito-section .mobile-expandable-row.essential,
+    #gastos-mes-section .mobile-expandable-row.essential,
+    #gastos-mes-section .mobile-summary-row.essential {
+        border-left-color: var(--color-success);
+    }
+
+    #cartao-credito-section .mobile-expandable-row.desire,
+    #gastos-mes-section .mobile-expandable-row.desire,
+    #gastos-mes-section .mobile-summary-row.desire {
+        border-left-color: var(--color-danger);
+    }
+
+    #cartao-credito-section .mobile-expandable-row.investment,
+    #gastos-mes-section .mobile-expandable-row.investment,
+    #gastos-mes-section .mobile-summary-row.investment {
+        border-left-color: var(--color-info);
+    }
+
+    #cartao-credito-section .mobile-expandable-row:hover,
+    #gastos-mes-section .mobile-expandable-row:hover,
+    #gastos-mes-section .mobile-summary-row:hover {
+        background: var(--card-bg);
+        transform: none;
+    }
+
+    #cartao-credito-section .mobile-expandable-row>td,
+    #gastos-mes-section .mobile-expandable-row>td,
+    #gastos-mes-section .mobile-summary-row>td {
+        position: static;
+        display: block;
+        width: auto;
+        min-width: 0;
+        max-width: none;
+        height: auto;
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        white-space: normal;
+    }
+
+    #cartao-credito-section .mobile-item-description,
+    #gastos-mes-section .mobile-item-description {
+        grid-area: description;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        overflow: hidden;
+        color: var(--text-primary);
+        font-size: 0.94rem;
+        font-weight: 750;
+        line-height: 1.35;
+    }
+
+    .mobile-item-description>span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #cartao-credito-section .mobile-item-value,
+    #gastos-mes-section .mobile-item-value {
+        grid-area: value;
+        color: var(--primary-color);
+        font-size: 0.96rem;
+        font-weight: 800;
+        line-height: 1.35;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    #cartao-credito-section .mobile-item-percentage,
+    #gastos-mes-section .mobile-item-percentage {
+        grid-area: percentage;
+        align-self: center;
+        color: var(--text-muted);
+        font-size: 0.74rem;
+        font-weight: 700;
+        line-height: 1.3;
+        text-align: left;
+    }
+
+    #cartao-credito-section .mobile-item-percentage::before,
+    #gastos-mes-section .mobile-item-percentage::before {
+        content: "• ";
+    }
+
+    #cartao-credito-section .mobile-item-category,
+    #gastos-mes-section .mobile-item-category {
+        grid-area: category;
+        align-self: center;
+        text-align: left;
+    }
+
+    #cartao-credito-section .category-badge,
+    #gastos-mes-section .category-badge {
+        padding: 4px 8px;
+        font-size: 0.66rem;
+        line-height: 1.2;
+    }
+
+    #gastos-mes-section .mobile-item-status {
+        grid-area: status;
+        align-self: center;
+        text-align: right;
+    }
+
+    .mobile-row-toggle {
+        position: absolute;
+        top: 47px;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 28px;
+        height: 28px;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(var(--primary-rgb), 0.1);
+        color: var(--primary-color);
+        cursor: pointer;
+        flex: 0 0 auto;
+        display: grid;
+        place-items: center;
+        font-size: 0.7rem;
+    }
+
+    .mobile-expandable-row.is-expanded .mobile-row-toggle i {
+        transform: rotate(180deg);
+    }
+
+    .mobile-paid-label {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 800;
+    }
+
+    .mobile-paid-label.is-paid {
+        background: rgba(34, 197, 94, 0.14);
+        color: var(--color-success);
+    }
+
+    .mobile-paid-label.is-pending {
+        background: rgba(239, 68, 68, 0.14);
+        color: var(--color-danger);
+    }
+
+    #gastos-mes-section .mobile-status-control {
+        display: none !important;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    #gastos-mes-section .mobile-status-action-text {
+        display: inline;
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+
+    #gastos-mes-section .mobile-status-control .toggle-switch {
+        display: inline-block;
+        width: 38px;
+        height: 20px;
+        margin: 0;
+    }
+
+    #gastos-mes-section .mobile-status-control .toggle-slider:before {
+        width: 14px;
+        height: 14px;
+    }
+
+    #gastos-mes-section .mobile-status-control .toggle-switch input:checked+.toggle-slider:before {
+        transform: translateY(-50%) translateX(17px);
+    }
+
+    #cartao-credito-section .mobile-expandable-row>td.mobile-item-actions,
+    #gastos-mes-section .mobile-expandable-row>td.mobile-item-actions,
+    #gastos-mes-section .mobile-summary-row>td.mobile-item-actions {
+        grid-area: actions;
+        display: none;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 4px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-light);
+        color: var(--text-muted);
+        font-size: 0.74rem;
+        text-align: right;
+    }
+
+    #cartao-credito-section .mobile-expandable-row.is-expanded>td.mobile-item-actions,
+    #gastos-mes-section .mobile-expandable-row.is-expanded>td.mobile-item-actions {
+        display: flex;
+    }
+
+    #gastos-mes-section .mobile-summary-row>td.mobile-item-actions {
+        display: none;
+    }
+
+    #gastos-mes-section .mobile-expanded-status-action {
+        display: none;
+        width: 100%;
+        min-height: 34px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-light);
+        color: var(--text-secondary);
+        font-size: 0.74rem;
+        font-weight: 700;
+    }
+
+    #gastos-mes-section .mobile-expandable-row.is-expanded .mobile-expanded-status-action {
+        display: flex;
+    }
+
+    #gastos-mes-section .mobile-expanded-status-action .toggle-switch {
+        display: inline-block;
+        width: 38px;
+        height: 20px;
+        margin: 0;
+        flex: 0 0 auto;
+    }
+
+    #gastos-mes-section .mobile-expanded-status-action .toggle-slider:before {
+        width: 14px;
+        height: 14px;
+    }
+
+    #gastos-mes-section .mobile-expanded-status-action .toggle-switch input:checked+.toggle-slider:before {
+        transform: translateY(-50%) translateX(17px);
+    }
+
+    #cartao-credito-section .mobile-item-actions .btn,
+    #gastos-mes-section .mobile-item-actions .btn {
+        width: auto;
+        min-width: 0;
+        height: 38px;
+        min-height: 38px;
+        margin: 0;
+        padding: 8px 12px;
+        gap: 7px;
+        font-size: 0.76rem;
+    }
+
+    .mobile-action-label {
+        display: inline;
+    }
+
+    #cartao-credito-section .table-footer,
+    #gastos-mes-section .table-footer {
+        margin-top: 12px;
+        padding: 12px 13px;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: var(--bg-secondary);
+        font-size: 0.82rem;
+        line-height: 1.35;
+        text-align: right;
+    }
+}
+
+@media (max-width: 400px) {
+
+    #cartao-credito-section .section-header h2,
+    #gastos-mes-section .section-header h2 {
+        font-size: 0.98rem;
+    }
+
+    #cartao-credito-section .section-header .btn,
+    #gastos-mes-section .section-header .btn {
+        min-height: 38px;
+        padding: 8px 10px;
+        font-size: 0.72rem;
+    }
+
+    #cartao-credito-section .mobile-expandable-row,
+    #gastos-mes-section .mobile-expandable-row,
+    #gastos-mes-section .mobile-summary-row {
+        gap: 9px 10px;
+        min-height: 72px;
+        padding: 12px 11px;
+    }
+
+    #cartao-credito-section .mobile-item-description,
+    #gastos-mes-section .mobile-item-description {
+        font-size: 0.88rem;
+    }
+
+    #cartao-credito-section .mobile-item-value,
+    #gastos-mes-section .mobile-item-value {
+        font-size: 0.9rem;
+    }
+
+    #cartao-credito-section .mobile-item-percentage,
+    #gastos-mes-section .mobile-item-percentage,
+    #gastos-mes-section .mobile-status-action-text {
+        font-size: 0.68rem;
+    }
+
+    #cartao-credito-section .category-badge,
+    #gastos-mes-section .category-badge,
+    .mobile-paid-label {
+        font-size: 0.64rem;
+    }
+
+    #cartao-credito-section .mobile-item-actions .btn,
+    #gastos-mes-section .mobile-item-actions .btn {
+        height: 36px;
+        min-height: 36px;
+        padding: 7px 10px;
+        font-size: 0.72rem;
+    }
+}
+
+.app-notification {
+    position: fixed;
+    z-index: 10000;
+    right: 18px;
+    bottom: 18px;
+    display: none;
+    max-width: min(360px, calc(100vw - 36px));
+    padding: 12px 14px;
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--primary-color);
+    border-radius: 10px;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.app-notification.is-visible {
+    display: block;
+}
+
+.app-notification.is-success {
+    border-left-color: var(--color-success);
+}
+
+.app-notification.is-warning {
+    border-left-color: #f59e0b;
+}
+
+.app-notification.is-info {
+    border-left-color: var(--color-info);
+}
+
+@media (max-width: 768px) {
+    #gastos-mes-section .mobile-summary-row .mobile-item-status {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    #gastos-mes-section .mobile-summary-row .mobile-status-control {
+        display: inline-flex !important;
+    }
+
+    #gastos-mes-section .mobile-summary-row .mobile-status-action-text {
+        display: none;
+    }
+
+    .app-notification {
+        right: 12px;
+        bottom: 12px;
+        max-width: calc(100vw - 24px);
     }
 }

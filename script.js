@@ -60,7 +60,7 @@ function initFirebase() {
 }
 
 // Gerenciar mudanças no estado de autenticação
-function handleAuthStateChanged(user) {
+async function handleAuthStateChanged(user) {
     const authContainer = document.getElementById('auth-container');
     const appContainer = document.getElementById('app-container');
     const authLoading = document.getElementById('auth-loading');
@@ -106,20 +106,10 @@ function handleAuthStateChanged(user) {
         if (typeof app !== 'undefined' && app) {
             app.userId = user.uid;
             if (!app.isDataLoaded) {
-                app.loadUserData();
+                await app.loadUserData();
+            } else {
+                app.enableSyncButtons();
             }
-
-            // Atualizar status de sincronização
-            const syncStatusElement = document.getElementById('sync-status-text');
-            if (syncStatusElement) {
-                syncStatusElement.textContent = 'Conectado';
-            }
-
-            // Habilitar botões de sincronização
-            const syncBtn = document.getElementById('sync-now-btn');
-            const downloadBtn = document.getElementById('sync-download-btn');
-            if (syncBtn) syncBtn.disabled = false;
-            if (downloadBtn) downloadBtn.disabled = false;
         }
     } else {
         // Usuário não logado
@@ -176,6 +166,7 @@ function clearAuthMessages() {
     document.getElementById('register-error').style.display = 'none';
     document.getElementById('forgot-error').style.display = 'none';
     document.getElementById('forgot-success').style.display = 'none';
+    document.querySelectorAll('.resend-verification-link').forEach(element => element.remove());
 }
 
 // Função de Login
@@ -199,18 +190,24 @@ async function handleLogin() {
 
         // Verificar se o email foi verificado
         if (!userCredential.user.emailVerified) {
-            // Fazer logout
-            await auth.signOut();
-
             // Mostrar mensagem para verificar email
             showError(errorElement, 'Por favor, verifique seu email antes de fazer login. Verifique sua caixa de entrada (e spam).');
+            authLoading.style.display = 'none';
 
             // Mostrar opção para reenviar email
-            setTimeout(() => {
-                const resendLink = document.createElement('div');
-                resendLink.innerHTML = '<a href="#" onclick="resendVerificationEmail(\'' + email + '\')" style="color: var(--primary-color); text-decoration: underline; margin-top: 10px; display: block;">Reenviar email de verificação</a>';
-                errorElement.parentNode.appendChild(resendLink);
-            }, 1000);
+            document.querySelectorAll('.resend-verification-link').forEach(element => element.remove());
+            const resendLink = document.createElement('div');
+            const resendAction = document.createElement('a');
+            resendLink.className = 'resend-verification-link';
+            resendAction.href = '#';
+            resendAction.textContent = 'Reenviar email de verificação';
+            resendAction.style.cssText = 'color: var(--primary-color); text-decoration: underline; margin-top: 10px; display: block;';
+            resendAction.addEventListener('click', event => {
+                event.preventDefault();
+                resendVerificationEmail(email);
+            });
+            resendLink.appendChild(resendAction);
+            errorElement.parentNode.appendChild(resendLink);
 
             return;
         }
@@ -374,14 +371,13 @@ async function handleForgotPassword() {
 // Função para reenviar email de verificação
 async function resendVerificationEmail(email) {
     try {
-        // Criar link temporário para reenviar
-        const actionCodeSettings = {
-            url: window.location.href,
-            handleCodeInApp: true
-        };
+        const user = auth?.currentUser;
+        if (!user || user.email?.toLowerCase() !== String(email || '').toLowerCase()) {
+            alert('Faça login novamente para reenviar o email de verificação.');
+            return;
+        }
 
-        await auth.sendSignInLinkToEmail(email, actionCodeSettings);
-
+        await user.sendEmailVerification();
         alert('Email de verificação reenviado! Verifique sua caixa de entrada.');
 
     } catch (error) {
@@ -479,6 +475,10 @@ class ControleGastos {
         this.DEBUG = false;
         this.showAllDailyExpenses = false;
         this.hideValues = localStorage.getItem('hideValues') === 'true';
+        const savedDailyExpenseIdeal = parseFloat(localStorage.getItem('dailyExpenseIdeal'));
+        this.dailyExpenseIdeal = Number.isFinite(savedDailyExpenseIdeal) && savedDailyExpenseIdeal >= 0
+            ? savedDailyExpenseIdeal
+            : 22;
         this.valueMaskObserver = null;
         this.valueMaskTimer = null;
         this.isApplyingValueMask = false;
@@ -500,6 +500,7 @@ class ControleGastos {
         this.initTheme();
         this.initPalette();
         this.initPrivacyMode();
+        this.initDailyExpenseIdeal();
         this.initSettingsDrawer();
 
         this.init();
@@ -518,13 +519,15 @@ class ControleGastos {
             .replace(/'/g, '&#039;');
     }
 
-    createLocalBackupBeforeSync() {
+    createLocalBackupBeforeSync(dataToBackup = this.data, reason = 'before-firestore-sync') {
         try {
+            if (!dataToBackup || typeof dataToBackup !== 'object' || Object.keys(dataToBackup).length === 0) return;
+
             const backups = JSON.parse(localStorage.getItem('controleGastosBackups') || '[]');
             backups.unshift({
                 createdAt: new Date().toISOString(),
-                reason: 'before-firestore-sync',
-                controleGastos: this.data
+                reason,
+                controleGastos: dataToBackup
             });
 
             localStorage.setItem('controleGastosBackups', JSON.stringify(backups.slice(0, 5)));
@@ -576,11 +579,44 @@ class ControleGastos {
         this.setupValueMaskObserver();
     }
 
+    initDailyExpenseIdeal() {
+        const input = document.getElementById('daily-expense-ideal-input');
+        if (!input) return;
+
+        input.value = String(this.dailyExpenseIdeal);
+        input.addEventListener('input', () => {
+            if (input.value !== '') this.setDailyExpenseIdeal(input.value, false);
+        });
+        input.addEventListener('change', () => this.setDailyExpenseIdeal(input.value));
+        input.addEventListener('blur', () => {
+            if (input.value === '') input.value = String(this.dailyExpenseIdeal);
+        });
+    }
+
+    setDailyExpenseIdeal(value, syncInput = true) {
+        const normalizedValue = Number(value);
+        const input = document.getElementById('daily-expense-ideal-input');
+        if (!Number.isFinite(normalizedValue) || normalizedValue < 0) {
+            if (syncInput && input) input.value = String(this.dailyExpenseIdeal);
+            return;
+        }
+
+        this.dailyExpenseIdeal = normalizedValue;
+        localStorage.setItem('dailyExpenseIdeal', String(normalizedValue));
+
+        if (syncInput && input) input.value = String(normalizedValue);
+
+        if (this.isDataLoaded) this.updateSummary();
+    }
+
     // Inicializar menu lateral de configurações
     initSettingsDrawer() {
         const settingsToggle = document.getElementById('settings-toggle');
         const settingsClose = document.getElementById('settings-close');
         const settingsOverlay = document.getElementById('settings-overlay');
+        const downloadBackupBtn = document.getElementById('download-backup-btn');
+        const restoreBackupBtn = document.getElementById('restore-backup-btn');
+        const restoreBackupInput = document.getElementById('restore-backup-input');
 
         if (settingsToggle) {
             settingsToggle.addEventListener('click', () => this.openSettingsDrawer());
@@ -590,6 +626,16 @@ class ControleGastos {
         }
         if (settingsOverlay) {
             settingsOverlay.addEventListener('click', () => this.closeSettingsDrawer());
+        }
+        if (downloadBackupBtn) {
+            downloadBackupBtn.addEventListener('click', () => this.downloadFullBackup());
+        }
+        if (restoreBackupBtn && restoreBackupInput) {
+            restoreBackupBtn.addEventListener('click', () => {
+                restoreBackupInput.value = '';
+                restoreBackupInput.click();
+            });
+            restoreBackupInput.addEventListener('change', event => this.handleBackupFileSelection(event));
         }
 
         document.addEventListener('keydown', event => {
@@ -634,7 +680,7 @@ class ControleGastos {
 
             // Forçar atualização dos cálculos após renderização
             setTimeout(() => {
-                this.atualizarRendaFamiliar();
+                this.atualizarRendaFamiliar(false);
             }, 200);
 
             // Verificar se Chart.js está disponível
@@ -667,11 +713,6 @@ class ControleGastos {
 
             // Inicializar resumo anual se necessário
             this.toggleAnnualSummary();
-
-            // Configurar efeitos especiais de sincronização
-            setTimeout(() => {
-                this.setupSyncEffects();
-            }, 500);
         } catch (error) {
             console.error('❌ Erro na inicialização:', error);
         }
@@ -781,6 +822,296 @@ class ControleGastos {
         settingsUserEmail.textContent = visibleEmail || currentUser?.email || currentUser?.displayName || 'Usuário conectado';
     }
 
+    setBackupStatus(message, type = '') {
+        const status = document.getElementById('backup-status-text');
+        if (!status) return;
+
+        status.textContent = message;
+        status.className = `settings-backup-status${type ? ` is-${type}` : ''}`;
+    }
+
+    createBackupPayload(reason = 'manual') {
+        return {
+            format: 'controle-gastos-backup',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            reason,
+            data: this.data,
+            preferences: {
+                hideValues: this.hideValues,
+                dailyExpenseIdeal: this.dailyExpenseIdeal,
+                theme: document.documentElement.getAttribute('data-theme') || 'light',
+                accentTheme: document.documentElement.getAttribute('data-accent-theme') || 'default',
+                brandPalette: document.documentElement.getAttribute('data-palette') || 'logo'
+            }
+        };
+    }
+
+    downloadFullBackup(reason = 'manual', showStatus = true) {
+        if (!this.data || typeof this.data !== 'object' || Object.keys(this.data).length === 0) {
+            if (showStatus) {
+                this.setBackupStatus('Não há dados carregados para incluir no backup.', 'error');
+                alert('Não há dados carregados para criar o backup.');
+            }
+            return 'local';
+        }
+
+        try {
+            const backup = this.createBackupPayload(reason);
+            const content = JSON.stringify(backup, null, 2);
+            const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const now = new Date();
+            const stamp = [
+                now.getFullYear(),
+                String(now.getMonth() + 1).padStart(2, '0'),
+                String(now.getDate()).padStart(2, '0')
+            ].join('-') + '_' + [
+                String(now.getHours()).padStart(2, '0'),
+                String(now.getMinutes()).padStart(2, '0')
+            ].join('-');
+            const suffix = reason === 'before-restore' ? '-antes-restauracao' : '';
+
+            link.href = url;
+            link.download = `controle-gastos-backup-${stamp}${suffix}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+            if (showStatus) {
+                this.setBackupStatus(`Backup baixado em ${now.toLocaleString('pt-BR')}.`, 'success');
+            }
+            return true;
+        } catch (error) {
+            console.error('Erro ao baixar backup completo:', error);
+            if (showStatus) {
+                this.setBackupStatus('Não foi possível baixar o backup.', 'error');
+                alert('Não foi possível criar o backup. Tente novamente.');
+            }
+            return false;
+        }
+    }
+
+    getDataFromBackupPayload(payload) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+        if (payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) return payload.data;
+        if (payload.controleGastos && typeof payload.controleGastos === 'object' && !Array.isArray(payload.controleGastos)) {
+            return payload.controleGastos;
+        }
+        return this.isValidBackupData(payload) ? payload : null;
+    }
+
+    isValidBackupData(data) {
+        if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+
+        const yearKeys = Object.keys(data).filter(key => /^\d{4}$/.test(key));
+        let validMonthCount = 0;
+
+        const yearsAreValid = yearKeys.length > 0 && yearKeys.every(year => {
+            const yearData = data[year];
+            if (!yearData || typeof yearData !== 'object' || Array.isArray(yearData)) return false;
+
+            return Object.keys(yearData).every(month => {
+                if (!/^(?:[1-9]|1[0-2]|total)$/.test(month)) return false;
+
+                const monthData = yearData[month];
+                if (!monthData || typeof monthData !== 'object' || Array.isArray(monthData)) return false;
+                if (monthData.expenses !== undefined && !Array.isArray(monthData.expenses)) return false;
+                if (monthData.creditCard !== undefined && !Array.isArray(monthData.creditCard)) return false;
+                if (monthData.dailyExpenses !== undefined && !Array.isArray(monthData.dailyExpenses)) return false;
+                if (
+                    monthData.rendaFamiliar !== undefined &&
+                    (!monthData.rendaFamiliar || typeof monthData.rendaFamiliar !== 'object' || Array.isArray(monthData.rendaFamiliar))
+                ) {
+                    return false;
+                }
+
+                if (month !== 'total') validMonthCount++;
+                return true;
+            });
+        });
+
+        return yearsAreValid && validMonthCount > 0;
+    }
+
+    saveLocalSnapshotBeforeRestore() {
+        try {
+            const savedBackups = JSON.parse(localStorage.getItem('controleGastosBackups') || '[]');
+            const backups = Array.isArray(savedBackups) ? savedBackups : [];
+
+            backups.unshift({
+                createdAt: new Date().toISOString(),
+                reason: 'before-restore',
+                controleGastos: this.data
+            });
+
+            localStorage.setItem('controleGastosBackups', JSON.stringify(backups.slice(0, 5)));
+            return true;
+        } catch (error) {
+            console.warn('Não foi possível criar a cópia local antes da restauração:', error);
+            return false;
+        }
+    }
+
+    async handleBackupFileSelection(event) {
+        const input = event.currentTarget;
+        const file = input?.files?.[0];
+        if (!file) return;
+
+        try {
+            if (file.size > 10 * 1024 * 1024) {
+                throw new Error('Arquivo maior que 10 MB');
+            }
+
+            const payload = JSON.parse(await file.text());
+            const backupData = this.getDataFromBackupPayload(payload);
+
+            if (!this.isValidBackupData(backupData)) {
+                throw new Error('Estrutura de backup inválida');
+            }
+
+            const exportedAt = payload.exportedAt || payload.createdAt || payload.date;
+            const dateText = exportedAt && !isNaN(new Date(exportedAt).getTime())
+                ? new Date(exportedAt).toLocaleString('pt-BR')
+                : 'data não informada';
+
+            this.showConfirmModal(
+                'Restaurar Backup',
+                `Restaurar o backup de ${dateText}? Os dados atuais deste dispositivo serão substituídos. Antes disso, uma cópia de segurança será criada automaticamente.`,
+                () => this.restoreBackupData(backupData, payload.preferences)
+            );
+        } catch (error) {
+            console.error('Erro ao ler arquivo de backup:', error);
+            this.setBackupStatus('Arquivo de backup inválido ou corrompido.', 'error');
+            alert('O arquivo selecionado não é um backup válido do aplicativo.');
+        } finally {
+            if (input) input.value = '';
+        }
+    }
+
+    applyBackupPreferences(preferences) {
+        if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences)) return;
+
+        if (typeof preferences.hideValues === 'boolean') {
+            this.setHideValues(preferences.hideValues);
+        }
+        if (Number.isFinite(Number(preferences.dailyExpenseIdeal)) && Number(preferences.dailyExpenseIdeal) >= 0) {
+            this.setDailyExpenseIdeal(Number(preferences.dailyExpenseIdeal));
+        }
+        if (typeof preferences.theme === 'string') {
+            this.setTheme(preferences.theme === 'dark' ? 'dark' : 'light');
+        }
+        if (typeof preferences.accentTheme === 'string') {
+            this.setAccentTheme(preferences.accentTheme);
+        }
+        if (typeof preferences.brandPalette === 'string') {
+            this.setPalette(preferences.brandPalette);
+        }
+    }
+
+    restoreBackupData(backupData, preferences) {
+        const previousData = JSON.parse(JSON.stringify(this.data));
+        const previousYear = this.currentYear;
+        const previousMonth = this.currentMonth;
+        const previousRendaFamiliar = JSON.parse(JSON.stringify(this.rendaFamiliar || {}));
+        const previousPreferences = this.createBackupPayload('before-restore').preferences;
+
+        try {
+            const currentBackupDownloaded = this.downloadFullBackup('before-restore', false);
+            const localSnapshotSaved = this.saveLocalSnapshotBeforeRestore();
+            if (!currentBackupDownloaded && !localSnapshotSaved) {
+                throw new Error('Não foi possível proteger os dados atuais antes da restauração');
+            }
+
+            this.data = JSON.parse(JSON.stringify(backupData));
+            this.isDataLoaded = true;
+
+            const availableYears = Object.keys(this.data)
+                .filter(key => /^\d{4}$/.test(key))
+                .map(Number)
+                .sort((a, b) => a - b);
+
+            const yearsWithMonths = availableYears.filter(year =>
+                Object.keys(this.data[year] || {}).some(key => /^(?:[1-9]|1[0-2])$/.test(key))
+            );
+
+            if (!yearsWithMonths.includes(this.currentYear)) {
+                this.currentYear = yearsWithMonths[yearsWithMonths.length - 1];
+            }
+
+            const availableMonths = Object.keys(this.data[this.currentYear] || {})
+                .filter(key => /^(?:[1-9]|1[0-2])$/.test(key))
+                .map(Number)
+                .sort((a, b) => a - b);
+
+            if (this.currentMonth === 'total' || !this.data[this.currentYear]?.[this.currentMonth]) {
+                this.currentMonth = availableMonths[availableMonths.length - 1];
+            }
+
+            const monthData = this.data[this.currentYear][this.currentMonth];
+            this.rendaFamiliar = monthData.rendaFamiliar || {
+                meuSalario: 0,
+                salarioDela: 0,
+                totalTransferido: 0
+            };
+
+            localStorage.setItem('controleGastos', JSON.stringify(this.data));
+            localStorage.setItem('rendaFamiliar', JSON.stringify(this.rendaFamiliar));
+            this.applyBackupPreferences(preferences);
+
+            const mySalaryEl = document.getElementById('my-salary');
+            const herSalaryEl = document.getElementById('her-salary');
+            const totalTransferredEl = document.getElementById('total-transferred');
+            if (mySalaryEl) mySalaryEl.value = this.formatarMoeda(this.rendaFamiliar.meuSalario || 0);
+            if (herSalaryEl) herSalaryEl.value = this.formatarMoeda(this.rendaFamiliar.salarioDela || 0);
+            if (totalTransferredEl) totalTransferredEl.value = this.formatarMoeda(this.rendaFamiliar.totalTransferido || 0);
+
+            const herExpensesEl = document.getElementById('her-expenses');
+            const availableForMeEl = document.getElementById('available-for-me');
+            if (herExpensesEl) {
+                herExpensesEl.textContent = this.formatarMoeda(
+                    (this.rendaFamiliar.salarioDela || 0) - (this.rendaFamiliar.totalTransferido || 0)
+                );
+            }
+            if (availableForMeEl) {
+                availableForMeEl.textContent = this.formatarMoeda(
+                    (this.rendaFamiliar.meuSalario || 0) + (this.rendaFamiliar.totalTransferido || 0)
+                );
+                availableForMeEl.className = 'value positive';
+            }
+
+            this.setActiveMonthButton();
+            this.updateMonthDisplay();
+            this.toggleAnnualSummary();
+            this.loadDailyExpenses();
+            this.renderAll();
+            this.setBackupStatus('Backup restaurado somente neste dispositivo.', 'success');
+            alert('Backup restaurado com sucesso neste dispositivo. Nenhum dado foi enviado automaticamente para a nuvem.');
+        } catch (error) {
+            console.error('Erro ao restaurar backup:', error);
+            this.data = previousData;
+            this.currentYear = previousYear;
+            this.currentMonth = previousMonth;
+            this.rendaFamiliar = previousRendaFamiliar;
+            localStorage.setItem('controleGastos', JSON.stringify(previousData));
+            localStorage.setItem('rendaFamiliar', JSON.stringify(previousRendaFamiliar));
+            this.applyBackupPreferences(previousPreferences);
+            try {
+                this.setActiveMonthButton();
+                this.updateMonthDisplay();
+                this.toggleAnnualSummary();
+                this.loadDailyExpenses();
+                this.renderAll();
+            } catch (renderError) {
+                console.error('Erro ao redesenhar dados preservados após falha na restauração:', renderError);
+            }
+            this.setBackupStatus('Não foi possível restaurar o backup.', 'error');
+            alert('Não foi possível restaurar o backup. Seus dados atuais foram preservados.');
+        }
+    }
+
     setHideValues(hideValues, persist = true) {
         this.hideValues = Boolean(hideValues);
         document.documentElement.setAttribute('data-hide-values', String(this.hideValues));
@@ -829,6 +1160,14 @@ class ControleGastos {
         appContainer.querySelectorAll('[data-hide-values-raw]').forEach(element => {
             element.textContent = element.dataset.hideValuesRaw;
             delete element.dataset.hideValuesRaw;
+        });
+
+        appContainer.querySelectorAll('input[data-private-value]').forEach(input => {
+            if (!input.dataset.privateValueType) {
+                input.dataset.privateValueType = input.type || 'text';
+            }
+
+            input.type = this.hideValues ? 'password' : input.dataset.privateValueType;
         });
 
         if (this.hideValues) {
@@ -1152,7 +1491,7 @@ class ControleGastos {
             yPosition += 10;
 
             // Tabela de gastos
-            const monthData = this.getCurrentMonthData();
+            const monthData = this.getCurrentPeriodData();
             const gastos = monthData.expenses || [];
 
             if (gastos.length > 0) {
@@ -1192,9 +1531,7 @@ class ControleGastos {
             doc.text('Gastos com Cartão de Crédito', margin, yPosition);
             yPosition += 10;
 
-            const gastosCartao = this.data.creditExpenses?.filter(item =>
-                item.month === this.currentMonth && item.year === this.currentYear
-            ) || [];
+            const gastosCartao = monthData.creditCard || [];
 
             if (gastosCartao.length > 0) {
                 const tableData = gastosCartao.map(item => [
@@ -1322,16 +1659,10 @@ class ControleGastos {
         const horaAtual = new Date().toLocaleTimeString('pt-BR');
 
         // Obter dados dos gastos
-        const monthData = this.getCurrentMonthData();
-        let gastosMensais = monthData.expenses || [];
+        const monthData = this.getCurrentPeriodData();
+        const gastosMensais = monthData.expenses || [];
         const gastosCartao = monthData.creditCard || [];
         const gastosDiarios = monthData.dailyExpenses || [];
-
-        // Adicionar resumos do cartão aos gastos mensais se existirem
-        const creditSummaries = this.getCreditSummaries();
-        if (creditSummaries.length > 0) {
-            gastosMensais = [...gastosMensais, ...creditSummaries];
-        }
 
         // Calcular totais
         const totalMensais = gastosMensais.reduce((sum, item) => sum + item.value, 0);
@@ -1774,22 +2105,33 @@ class ControleGastos {
         };
     }
 
-    // Obter dados do mês atual
-    getCurrentMonthData() {
-        // Verificar se os dados foram carregados
+    getYearMonthKeys(year = this.currentYear) {
+        return Object.keys(this.data?.[year] || {})
+            .filter(month => /^(?:[1-9]|1[0-2])$/.test(String(month)));
+    }
+
+    getMonthData(year, month, createIfMissing = true) {
         if (!this.isDataLoaded || !this.data) {
             console.log('⚠️ Dados não carregados ainda, aguardando autenticação...');
             return this.createMonthData();
         }
+        if (month === 'total') return this.createMonthData();
 
-        if (!this.data[this.currentYear]) {
-            this.data[this.currentYear] = {};
+        if (!this.data[year]) {
+            if (!createIfMissing) return null;
+            this.data[year] = {};
         }
-        if (!this.data[this.currentYear][this.currentMonth]) {
-            this.data[this.currentYear][this.currentMonth] = this.createMonthData();
+        if (!this.data[year][month]) {
+            if (!createIfMissing) return null;
+            this.data[year][month] = this.createMonthData();
         }
 
-        const monthData = this.data[this.currentYear][this.currentMonth];
+        return this.data[year][month];
+    }
+
+    // Obter dados do mês atual
+    getCurrentMonthData() {
+        const monthData = this.getMonthData(this.currentYear, this.currentMonth);
         console.log('🔍 getCurrentMonthData:', {
             currentMonth: this.currentMonth,
             currentYear: this.currentYear,
@@ -1805,6 +2147,25 @@ class ControleGastos {
         });
 
         return monthData;
+    }
+
+    getCurrentPeriodData() {
+        if (this.currentMonth !== 'total') return this.getCurrentMonthData();
+
+        const periodData = this.createMonthData();
+        this.getYearMonthKeys().forEach(month => {
+            const monthData = this.getMonthData(this.currentYear, month, false);
+            if (!monthData) return;
+
+            periodData.expenses.push(...(monthData.expenses || []));
+            periodData.creditCard.push(...(monthData.creditCard || []));
+            periodData.dailyExpenses.push(...(monthData.dailyExpenses || []));
+            periodData.rendaFamiliar.meuSalario += Number(monthData.rendaFamiliar?.meuSalario || 0);
+            periodData.rendaFamiliar.salarioDela += Number(monthData.rendaFamiliar?.salarioDela || 0);
+            periodData.rendaFamiliar.totalTransferido += Number(monthData.rendaFamiliar?.totalTransferido || 0);
+        });
+
+        return periodData;
     }
 
     // Carregar dados da renda familiar
@@ -1878,8 +2239,9 @@ class ControleGastos {
     async loadUserData() {
         if (!this.userId || !db) {
             console.log('⚠️ Usuário não autenticado ou Firebase não disponível');
-            this.enableSyncButtons();
-            return;
+            this.loadLocalDataFallback();
+            this.enableSyncButtons('Modo local');
+            return false;
         }
 
         try {
@@ -1887,13 +2249,25 @@ class ControleGastos {
 
             const userDoc = await db.collection('users').doc(this.userId).collection('data').doc('gastos').get();
 
-            if (userDoc.exists) {
-                const firestoreData = userDoc.data();
+            const firestoreData = userDoc.exists ? userDoc.data() : null;
+            const cloudData = (
+                firestoreData?.controleGastos &&
+                typeof firestoreData.controleGastos === 'object' &&
+                Object.keys(firestoreData.controleGastos).length > 0
+            ) ? firestoreData.controleGastos : null;
 
-                this.data = (
-                    firestoreData.controleGastos &&
-                    typeof firestoreData.controleGastos === "object"
-                ) ? firestoreData.controleGastos : {};
+            if (cloudData) {
+                const savedLocal = localStorage.getItem('controleGastos');
+                if (savedLocal && savedLocal !== JSON.stringify(cloudData)) {
+                    try {
+                        const localData = JSON.parse(savedLocal);
+                        this.createLocalBackupBeforeSync(localData, 'before-cloud-download');
+                    } catch (error) {
+                        console.warn('Não foi possível criar a cópia local antes do download:', error);
+                    }
+                }
+
+                this.data = cloudData;
 
                 localStorage.setItem('controleGastos', JSON.stringify(this.data));
                 console.log('✅ Dados carregados do Firestore');
@@ -1909,51 +2283,62 @@ class ControleGastos {
                 this.renderRendaFamiliar();
                 this.renderAll();
             } else {
-                console.log('ℹ️ Nenhum dado encontrado no Firestore para este usuário');
-
-                // Limpar completamente localStorage para novo usuário
-                console.log('🧹 Limpando localStorage completamente para novo usuário');
-                // ❌ NÃO apagar automaticamente
-                console.log('Logout realizado - dados preservados');
-
-                // Criar dados limpos para novo usuário
-                console.log('🧹 Criando dados limpos para novo usuário');
-                this.data = {};
-                this.data[this.currentYear] = {};
-                this.data[this.currentYear][this.currentMonth] = this.createMonthData();
-
-                // Marcar como carregado
-                this.isDataLoaded = true;
-
-                // Salvar estrutura vazia no localStorage
-                localStorage.setItem('controleGastos', JSON.stringify(this.data));
-
-                // Salvar estrutura inicial no Firestore
-                await this.saveToFirestore();
-
-                // Recarregar interface com dados limpos
-                this.loadDailyExpenses();
-                this.renderRendaFamiliar();
-                this.renderAll();
+                console.log('ℹ️ Nenhum dado encontrado no Firestore; preservando dados locais');
+                this.loadLocalDataFallback();
+                this.enableSyncButtons('Sem dados na nuvem');
+                return 'local';
             }
 
-            // Sempre habilitar botões após tentar carregar
             this.enableSyncButtons();
-
+            return 'cloud';
         } catch (error) {
             console.error('❌ Erro ao carregar dados do Firestore:', error);
-            this.enableSyncButtons();
+            this.loadLocalDataFallback();
+            this.enableSyncButtons('Erro na nuvem — usando dados locais');
+            return 'error';
         }
     }
 
+    loadLocalDataFallback() {
+        let localData = null;
+
+        try {
+            const saved = localStorage.getItem('controleGastos');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed).length > 0) {
+                    localData = parsed;
+                }
+            }
+        } catch (error) {
+            console.warn('Não foi possível carregar os dados locais:', error);
+        }
+
+        if (localData) {
+            this.data = localData;
+        } else if (!this.data || typeof this.data !== 'object' || Object.keys(this.data).length === 0) {
+            const fallbackMonth = this.currentMonth === 'total' ? new Date().getMonth() + 1 : this.currentMonth;
+            this.data = {};
+            this.data[this.currentYear] = {};
+            this.data[this.currentYear][fallbackMonth] = this.createMonthData();
+            localStorage.setItem('controleGastos', JSON.stringify(this.data));
+        }
+
+        this.isDataLoaded = true;
+        this.ensureMonthDataExists();
+        this.loadDailyExpenses();
+        this.renderRendaFamiliar();
+        this.renderAll();
+    }
+
     // Habilitar botões de sincronização
-    enableSyncButtons() {
+    enableSyncButtons(statusText = 'Conectado') {
         const syncStatusElement = document.getElementById('sync-status-text');
         const syncBtn = document.getElementById('sync-now-btn');
         const downloadBtn = document.getElementById('sync-download-btn');
 
         if (syncStatusElement) {
-            syncStatusElement.textContent = 'Conectado';
+            syncStatusElement.textContent = statusText;
         }
 
         if (syncBtn) {
@@ -1971,14 +2356,14 @@ class ControleGastos {
     async saveToFirestore() {
         if (!this.data || typeof this.data !== "object" || Object.keys(this.data).length === 0) {
             console.warn("⛔ Salvamento bloqueado: dados inválidos", this.data);
-            return;
+            return false;
         }
         if (!this.isDataLoaded) {
             console.warn("⛔ Salvamento bloqueado: dados ainda não carregados");
-            return;
+            return false;
         }
         if (!this.userId || !db) {
-            return;
+            return false;
         }
 
         try {
@@ -1990,8 +2375,10 @@ class ControleGastos {
             }, { merge: true });
 
             console.log('✅ Dados salvos no Firestore');
+            return true;
         } catch (error) {
             console.error('❌ Erro ao salvar no Firestore:', error);
+            return false;
         }
     }
 
@@ -2083,7 +2470,7 @@ class ControleGastos {
 
                 // 6.1. Executar cálculos automáticos da renda familiar
                 setTimeout(() => {
-                    this.atualizarRendaFamiliar();
+                    this.atualizarRendaFamiliar(false);
                 }, 100);
 
                 // 7. Atualizar campo de data do formulário rápido
@@ -2115,17 +2502,19 @@ class ControleGastos {
     }
 
     // Garantir que os dados do mês existam
-    ensureMonthDataExists() {
+    ensureMonthDataExists(year = this.currentYear, month = this.currentMonth) {
+        if (month === 'total') return;
+
         if (!this.data || typeof this.data !== "object") {
             this.data = {};
         }
-        if (!this.data[this.currentYear]) {
-            this.data[this.currentYear] = {};
-            console.log(`📁 Criado estrutura para ano: ${this.currentYear}`);
+        if (!this.data[year]) {
+            this.data[year] = {};
+            console.log(`📁 Criado estrutura para ano: ${year}`);
         }
-        if (!this.data[this.currentYear][this.currentMonth]) {
-            this.data[this.currentYear][this.currentMonth] = this.createMonthData();
-            console.log(`📅 Criado estrutura para mês: ${this.getMonthName(this.currentMonth)} ${this.currentYear}`);
+        if (!this.data[year][month]) {
+            this.data[year][month] = this.createMonthData();
+            console.log(`📅 Criado estrutura para mês: ${this.getMonthName(month)} ${year}`);
         }
     }
 
@@ -2259,19 +2648,17 @@ class ControleGastos {
 
         // Calcular restante a pagar dos resumos do cartão
         let totalNaoPagoCartao = 0;
-        if (this.data.creditSummaryStatus) {
-            if (!this.getCreditSummaryStatus('credit-essential') && monthData.creditCard) {
-                const creditEssential = monthData.creditCard.filter(item => item.category === 'essential').reduce((sum, item) => sum + item.value, 0);
-                totalNaoPagoCartao += creditEssential;
-            }
-            if (!this.getCreditSummaryStatus('credit-desire') && monthData.creditCard) {
-                const creditDesire = monthData.creditCard.filter(item => item.category === 'desire').reduce((sum, item) => sum + item.value, 0);
-                totalNaoPagoCartao += creditDesire;
-            }
-            if (!this.getCreditSummaryStatus('credit-investment') && monthData.creditCard) {
-                const creditInvestment = monthData.creditCard.filter(item => item.category === 'investment').reduce((sum, item) => sum + item.value, 0);
-                totalNaoPagoCartao += creditInvestment;
-            }
+        if (!this.getCreditSummaryStatus('credit-essential') && monthData.creditCard) {
+            const creditEssential = monthData.creditCard.filter(item => item.category === 'essential').reduce((sum, item) => sum + item.value, 0);
+            totalNaoPagoCartao += creditEssential;
+        }
+        if (!this.getCreditSummaryStatus('credit-desire') && monthData.creditCard) {
+            const creditDesire = monthData.creditCard.filter(item => item.category === 'desire').reduce((sum, item) => sum + item.value, 0);
+            totalNaoPagoCartao += creditDesire;
+        }
+        if (!this.getCreditSummaryStatus('credit-investment') && monthData.creditCard) {
+            const creditInvestment = monthData.creditCard.filter(item => item.category === 'investment').reduce((sum, item) => sum + item.value, 0);
+            totalNaoPagoCartao += creditInvestment;
         }
 
         const totalNaoPago = totalNaoPagoMensais + totalNaoPagoCartao;
@@ -2292,19 +2679,17 @@ class ControleGastos {
 
         // Calcular total pago dos resumos do cartão
         let totalPagoCartao = 0;
-        if (this.data.creditSummaryStatus) {
-            if (this.getCreditSummaryStatus('credit-essential') && monthData.creditCard) {
-                const creditEssential = monthData.creditCard.filter(item => item.category === 'essential').reduce((sum, item) => sum + item.value, 0);
-                totalPagoCartao += creditEssential;
-            }
-            if (this.getCreditSummaryStatus('credit-desire') && monthData.creditCard) {
-                const creditDesire = monthData.creditCard.filter(item => item.category === 'desire').reduce((sum, item) => sum + item.value, 0);
-                totalPagoCartao += creditDesire;
-            }
-            if (this.getCreditSummaryStatus('credit-investment') && monthData.creditCard) {
-                const creditInvestment = monthData.creditCard.filter(item => item.category === 'investment').reduce((sum, item) => sum + item.value, 0);
-                totalPagoCartao += creditInvestment;
-            }
+        if (this.getCreditSummaryStatus('credit-essential') && monthData.creditCard) {
+            const creditEssential = monthData.creditCard.filter(item => item.category === 'essential').reduce((sum, item) => sum + item.value, 0);
+            totalPagoCartao += creditEssential;
+        }
+        if (this.getCreditSummaryStatus('credit-desire') && monthData.creditCard) {
+            const creditDesire = monthData.creditCard.filter(item => item.category === 'desire').reduce((sum, item) => sum + item.value, 0);
+            totalPagoCartao += creditDesire;
+        }
+        if (this.getCreditSummaryStatus('credit-investment') && monthData.creditCard) {
+            const creditInvestment = monthData.creditCard.filter(item => item.category === 'investment').reduce((sum, item) => sum + item.value, 0);
+            totalPagoCartao += creditInvestment;
         }
 
         const totalPago = totalPagoMensais + totalPagoCartao;
@@ -2431,7 +2816,7 @@ class ControleGastos {
         let totalSobGestaoAno = 0;
 
         // Usar meses filtrados se o filtro estiver ativo
-        const monthsToInclude = this.periodFilter ? this.getFilteredMonths() : Object.keys(this.data[this.currentYear] || {});
+        const monthsToInclude = this.periodFilter ? this.getFilteredMonths() : this.getYearMonthKeys();
 
         console.log('📅 Meses incluídos no cálculo:', monthsToInclude);
 
@@ -2630,6 +3015,8 @@ class ControleGastos {
             console.warn("⚠️ Render bloqueado: dados ainda não carregados");
             return;
         }
+        if (this.currentMonth === 'total') return;
+
         try {
             // Recarregar dados do mês atual
             this.rendaFamiliar = this.loadRendaFamiliar();
@@ -2653,16 +3040,11 @@ class ControleGastos {
                 this.rendaFamiliar.salarioDela = Number(this.rendaFamiliar.salarioDela);
                 this.rendaFamiliar.totalTransferido = Number(this.rendaFamiliar.totalTransferido);
 
-                // Salvar os valores no localStorage
-                this.saveRendaFamiliar();
-
-
-
                 // Configurar formatação automática dos inputs
                 this.configurarInputsMoeda();
 
                 // Executar cálculos automaticamente após carregar dados
-                this.atualizarRendaFamiliar();
+                this.atualizarRendaFamiliar(false);
             } else {
                 console.error('❌ Elementos não encontrados:', {
                     'my-salary': !!mySalaryEl,
@@ -2675,6 +3057,45 @@ class ControleGastos {
         }
     }
 
+    toggleMobileExpenseRow(event, row, forceToggle = false) {
+        if (!row || !window.matchMedia('(max-width: 768px)').matches) return;
+        if (!forceToggle && event?.target?.closest('button, input, label, a')) return;
+
+        if (forceToggle) event?.stopPropagation();
+
+        const shouldExpand = !row.classList.contains('is-expanded');
+        row.closest('tbody')?.querySelectorAll('.mobile-expandable-row.is-expanded').forEach(openRow => {
+            openRow.classList.remove('is-expanded');
+            openRow.setAttribute('aria-expanded', 'false');
+            const openToggle = openRow.querySelector('.mobile-row-toggle');
+            if (openToggle) openToggle.setAttribute('aria-label', 'Mostrar detalhes');
+        });
+
+        row.classList.toggle('is-expanded', shouldExpand);
+        row.setAttribute('aria-expanded', String(shouldExpand));
+
+        const toggle = row.querySelector('.mobile-row-toggle');
+        if (toggle) toggle.setAttribute('aria-label', shouldExpand ? 'Ocultar detalhes' : 'Mostrar detalhes');
+    }
+
+    getExpandedMobileRowKey() {
+        if (!window.matchMedia('(max-width: 768px)').matches) return null;
+        return document.querySelector('.mobile-expandable-row.is-expanded')?.dataset.mobileRowKey || null;
+    }
+
+    restoreExpandedMobileRow(key) {
+        if (!key || !window.matchMedia('(max-width: 768px)').matches) return;
+
+        const row = document.querySelector(`.mobile-expandable-row[data-mobile-row-key="${key}"]`);
+        if (!row) return;
+
+        row.classList.add('is-expanded');
+        row.setAttribute('aria-expanded', 'true');
+
+        const toggle = row.querySelector('.mobile-row-toggle');
+        if (toggle) toggle.setAttribute('aria-label', 'Ocultar detalhes');
+    }
+
 
 
     // Renderizar despesas
@@ -2685,7 +3106,7 @@ class ControleGastos {
         let currentData = [];
         if (this.currentMonth === 'total') {
             // Para total, somar todos os meses do ano
-            Object.keys(this.data[this.currentYear] || {}).forEach(month => {
+            this.getYearMonthKeys().forEach(month => {
                 if (this.data[this.currentYear][month] && this.data[this.currentYear][month].expenses) {
                     currentData = currentData.concat(
                         this.data[this.currentYear][month].expenses.filter(item => item.source !== 'credit')
@@ -2705,7 +3126,7 @@ class ControleGastos {
         let creditExpenses = [];
         if (this.currentMonth === 'total') {
             // Para total, somar todos os gastos do cartão do ano
-            Object.keys(this.data[this.currentYear] || {}).forEach(month => {
+            this.getYearMonthKeys().forEach(month => {
                 if (this.data[this.currentYear][month] && this.data[this.currentYear][month].creditCard) {
                     creditExpenses = creditExpenses.concat(this.data[this.currentYear][month].creditCard);
                 }
@@ -2755,18 +3176,24 @@ class ControleGastos {
                 const essentialStatus = this.getCreditSummaryStatus('credit-essential');
                 console.log('💳 Status do resumo Essencial:', essentialStatus);
                 tableContent += `
-                    <tr class="credit-summary-row essential">
-                        <td>Resumo Cartão - Essencial</td>
-                        <td>R$ ${creditEssential.toFixed(2)}</td>
-                        <td>${totalExpense > 0 ? ((creditEssential / totalExpense) * 100).toFixed(1) : '0.0'}%</td>
-                        <td><span class="category-badge category-essential">Essencial</span></td>
-                        <td>
-                            <label class="toggle-switch">
-                                <input type="checkbox" ${essentialStatus ? 'checked' : ''} onchange="app.togglePaidStatus('credit', 'credit-essential', this.checked)">
-                                <span class="toggle-slider"></span>
-                            </label>
+                    <tr class="credit-summary-row essential mobile-summary-row">
+                        <td class="mobile-item-description">
+                            <span>Resumo Cartão - Essencial</span>
                         </td>
-                        <td><em>Resumo automático</em></td>
+                        <td class="mobile-item-value">R$ ${creditEssential.toFixed(2)}</td>
+                        <td class="mobile-item-percentage">${totalExpense > 0 ? ((creditEssential / totalExpense) * 100).toFixed(1) : '0.0'}%</td>
+                        <td class="mobile-item-category"><span class="category-badge category-essential">Essencial</span></td>
+                        <td class="mobile-item-status">
+                            <span class="mobile-paid-label ${essentialStatus ? 'is-paid' : 'is-pending'}">${essentialStatus ? 'Pago' : 'Pendente'}</span>
+                            <span class="mobile-status-control">
+                                <span class="mobile-status-action-text">Alterar status</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" ${essentialStatus ? 'checked' : ''} onchange="app.togglePaidStatus('credit', 'credit-essential', this.checked)">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </span>
+                        </td>
+                        <td class="mobile-item-actions"><em>Resumo automático</em></td>
                     </tr>
                 `;
             }
@@ -2775,18 +3202,24 @@ class ControleGastos {
                 const desireStatus = this.getCreditSummaryStatus('credit-desire');
                 console.log('💳 Status do resumo Desejo:', desireStatus);
                 tableContent += `
-                    <tr class="credit-summary-row desire">
-                        <td>Resumo Cartão - Desejo</td>
-                        <td>R$ ${creditDesire.toFixed(2)}</td>
-                        <td>${totalExpense > 0 ? ((creditDesire / totalExpense) * 100).toFixed(1) : '0.0'}%</td>
-                        <td><span class="category-badge category-desire">Desejo</span></td>
-                        <td>
-                            <label class="toggle-switch">
-                                <input type="checkbox" ${desireStatus ? 'checked' : ''} onchange="app.togglePaidStatus('credit', 'credit-desire', this.checked)">
-                                <span class="toggle-slider"></span>
-                            </label>
+                    <tr class="credit-summary-row desire mobile-summary-row">
+                        <td class="mobile-item-description">
+                            <span>Resumo Cartão - Desejo</span>
                         </td>
-                        <td><em>Resumo automático</em></td>
+                        <td class="mobile-item-value">R$ ${creditDesire.toFixed(2)}</td>
+                        <td class="mobile-item-percentage">${totalExpense > 0 ? ((creditDesire / totalExpense) * 100).toFixed(1) : '0.0'}%</td>
+                        <td class="mobile-item-category"><span class="category-badge category-desire">Desejo</span></td>
+                        <td class="mobile-item-status">
+                            <span class="mobile-paid-label ${desireStatus ? 'is-paid' : 'is-pending'}">${desireStatus ? 'Pago' : 'Pendente'}</span>
+                            <span class="mobile-status-control">
+                                <span class="mobile-status-action-text">Alterar status</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" ${desireStatus ? 'checked' : ''} onchange="app.togglePaidStatus('credit', 'credit-desire', this.checked)">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </span>
+                        </td>
+                        <td class="mobile-item-actions"><em>Resumo automático</em></td>
                     </tr>
                 `;
             }
@@ -2795,18 +3228,24 @@ class ControleGastos {
                 const investmentStatus = this.getCreditSummaryStatus('credit-investment');
                 console.log('💳 Status do resumo Investimento:', investmentStatus);
                 tableContent += `
-                    <tr class="credit-summary-row investment">
-                        <td>Resumo Cartão - Investimento</td>
-                        <td>R$ ${creditInvestment.toFixed(2)}</td>
-                        <td>${totalExpense > 0 ? ((creditInvestment / totalExpense) * 100).toFixed(1) : '0.0'}%</td>
-                        <td><span class="category-badge category-investment">Investimento</span></td>
-                        <td>
-                            <label class="toggle-switch">
-                                <input type="checkbox" ${investmentStatus ? 'checked' : ''} onchange="app.togglePaidStatus('credit', 'credit-investment', this.checked)">
-                                <span class="toggle-slider"></span>
-                            </label>
+                    <tr class="credit-summary-row investment mobile-summary-row">
+                        <td class="mobile-item-description">
+                            <span>Resumo Cartão - Investimento</span>
                         </td>
-                        <td><em>Resumo automático</em></td>
+                        <td class="mobile-item-value">R$ ${creditInvestment.toFixed(2)}</td>
+                        <td class="mobile-item-percentage">${totalExpense > 0 ? ((creditInvestment / totalExpense) * 100).toFixed(1) : '0.0'}%</td>
+                        <td class="mobile-item-category"><span class="category-badge category-investment">Investimento</span></td>
+                        <td class="mobile-item-status">
+                            <span class="mobile-paid-label ${investmentStatus ? 'is-paid' : 'is-pending'}">${investmentStatus ? 'Pago' : 'Pendente'}</span>
+                            <span class="mobile-status-control">
+                                <span class="mobile-status-action-text">Alterar status</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" ${investmentStatus ? 'checked' : ''} onchange="app.togglePaidStatus('credit', 'credit-investment', this.checked)">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </span>
+                        </td>
+                        <td class="mobile-item-actions"><em>Resumo automático</em></td>
                     </tr>
                 `;
             }
@@ -2829,23 +3268,39 @@ class ControleGastos {
             }
 
             return `
-                <tr class="expense-row ${item.category}">
-                    <td>${this.escapeHTML(item.description)}</td>
-                    <td>R$ ${item.value.toFixed(2)}</td>
-                    <td>${percentage}%</td>
-                    <td><span class="category-badge category-${item.category}">${this.getCategoryLabel(item.category)}</span></td>
-                    <td>
-                        <label class="toggle-switch">
-                            <input type="checkbox" ${item.paid ? 'checked' : ''} onchange="app.togglePaidStatus('expense', ${item.id}, this.checked)">
-                            <span class="toggle-slider"></span>
-                        </label>
+                <tr class="expense-row ${item.category} mobile-expandable-row" data-mobile-row-key="expense-${item.id}" aria-expanded="false" onclick="app.toggleMobileExpenseRow(event, this)">
+                    <td class="mobile-item-description">
+                        <span>${this.escapeHTML(item.description)}</span>
+                        <button type="button" class="mobile-row-toggle" aria-label="Mostrar detalhes" onclick="app.toggleMobileExpenseRow(event, this.closest('tr'), true)">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
                     </td>
-                    <td>
+                    <td class="mobile-item-value">R$ ${item.value.toFixed(2)}</td>
+                    <td class="mobile-item-percentage">${percentage}%</td>
+                    <td class="mobile-item-category"><span class="category-badge category-${item.category}">${this.getCategoryLabel(item.category)}</span></td>
+                    <td class="mobile-item-status">
+                        <span class="mobile-paid-label ${item.paid ? 'is-paid' : 'is-pending'}">${item.paid ? 'Pago' : 'Pendente'}</span>
+                        <span class="mobile-status-control">
+                            <span class="mobile-status-action-text">Alterar status</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" ${item.paid ? 'checked' : ''} onchange="app.togglePaidStatus('expense', ${item.id}, this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </span>
+                    </td>
+                    <td class="mobile-item-actions">
+                        <span class="mobile-expanded-status-action">
+                            <span>Status do pagamento</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" ${item.paid ? 'checked' : ''} onchange="app.togglePaidStatus('expense', ${item.id}, this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </span>
                         <button class="btn btn-edit" onclick="app.editItem('expense', ${item.id})">
-                            <i class="fas fa-edit"></i>
+                            <i class="fas fa-edit"></i><span class="mobile-action-label">Editar</span>
                         </button>
                         <button class="btn btn-danger" onclick="app.deleteItem('expense', ${item.id})">
-                            <i class="fas fa-trash"></i>
+                            <i class="fas fa-trash"></i><span class="mobile-action-label">Excluir</span>
                         </button>
                     </td>
                 </tr>
@@ -2936,7 +3391,7 @@ class ControleGastos {
         let currentData = [];
         if (this.currentMonth === 'total') {
             // Para total, somar todos os gastos do cartão do ano
-            Object.keys(this.data[this.currentYear] || {}).forEach(month => {
+            this.getYearMonthKeys().forEach(month => {
                 if (this.data[this.currentYear][month] && this.data[this.currentYear][month].creditCard) {
                     currentData = currentData.concat(this.data[this.currentYear][month].creditCard);
                 }
@@ -2955,17 +3410,22 @@ class ControleGastos {
         tbody.innerHTML = listaOrdenada.map(item => {
             const percentage = totalCredit > 0 ? ((item.value / totalCredit) * 100).toFixed(1) : '0.0';
             return `
-                <tr class="expense-row ${item.category}">
-                    <td>${this.escapeHTML(item.description)}</td>
-                    <td>R$ ${item.value.toFixed(2)}</td>
-                    <td>${percentage}%</td>
-                    <td><span class="category-badge category-${item.category}">${this.getCategoryLabel(item.category)}</span></td>
-                    <td>
+                <tr class="expense-row ${item.category} mobile-expandable-row" data-mobile-row-key="credit-${item.id}" aria-expanded="false" onclick="app.toggleMobileExpenseRow(event, this)">
+                    <td class="mobile-item-description">
+                        <span>${this.escapeHTML(item.description)}</span>
+                        <button type="button" class="mobile-row-toggle" aria-label="Mostrar detalhes" onclick="app.toggleMobileExpenseRow(event, this.closest('tr'), true)">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </td>
+                    <td class="mobile-item-value">R$ ${item.value.toFixed(2)}</td>
+                    <td class="mobile-item-percentage">${percentage}%</td>
+                    <td class="mobile-item-category"><span class="category-badge category-${item.category}">${this.getCategoryLabel(item.category)}</span></td>
+                    <td class="mobile-item-actions">
                         <button class="btn btn-edit" onclick="app.editItem('credit', ${item.id})">
-                            <i class="fas fa-edit"></i>
+                            <i class="fas fa-edit"></i><span class="mobile-action-label">Editar</span>
                         </button>
                         <button class="btn btn-danger" onclick="app.deleteItem('credit', ${item.id})">
-                            <i class="fas fa-trash"></i>
+                            <i class="fas fa-trash"></i><span class="mobile-action-label">Excluir</span>
                         </button>
                     </td>
                 </tr>
@@ -2984,7 +3444,7 @@ class ControleGastos {
             if (this.currentMonth === 'total') {
                 // Para total, somar todos os meses do ano
                 monthData = { dailyExpenses: [] };
-                Object.keys(this.data[this.currentYear] || {}).forEach(month => {
+                this.getYearMonthKeys().forEach(month => {
                     if (this.data[this.currentYear][month] && this.data[this.currentYear][month].dailyExpenses) {
                         monthData.dailyExpenses = monthData.dailyExpenses.concat(this.data[this.currentYear][month].dailyExpenses);
                     }
@@ -3008,9 +3468,13 @@ class ControleGastos {
 
             // Usar saldo do mês editável ou calcular automaticamente
             let balance;
-            if (this.data.monthBalance && this.data.monthBalance[`${this.currentYear}-${this.currentMonth}`]) {
+            const balanceKey = `${this.currentYear}-${this.currentMonth}`;
+            if (
+                this.data.monthBalance &&
+                Object.prototype.hasOwnProperty.call(this.data.monthBalance, balanceKey)
+            ) {
                 // Usar saldo definido manualmente
-                balance = this.data.monthBalance[`${this.currentYear}-${this.currentMonth}`];
+                balance = this.data.monthBalance[balanceKey];
             } else {
                 // Calcular automaticamente baseado na renda familiar
                 const meuSalario = this.rendaFamiliar.meuSalario || 0;
@@ -3045,7 +3509,7 @@ class ControleGastos {
                     nextPayment = new Date(this.data.nextPaymentDates[chave]);
                 } else {
                     // Data padrão (29 do mês)
-                    nextPayment = new Date(today.getFullYear(), today.getMonth(), 29);
+                    nextPayment = new Date(this.currentYear, this.currentMonth - 1, 29);
                 }
 
                 daysRemaining = Math.ceil((nextPayment - today) / (1000 * 60 * 60 * 24));
@@ -3066,19 +3530,24 @@ class ControleGastos {
             // Atualizar próximo pagamento
             const nextPaymentInput = document.getElementById('next-payment-input');
             if (nextPaymentInput) {
-                const chave = `${this.currentYear}-${this.currentMonth}`;
-                this.debugLog('🔍 Atualizando próximo pagamento:', { chave, nextPaymentDates: this.data.nextPaymentDates });
-
-                if (this.data.nextPaymentDates && this.data.nextPaymentDates[chave]) {
-                    // Usar data salva
-                    nextPaymentInput.value = this.data.nextPaymentDates[chave];
-                    this.debugLog('✅ Próximo pagamento atualizado com data salva:', this.data.nextPaymentDates[chave]);
+                if (this.currentMonth === 'total') {
+                    nextPaymentInput.value = '';
+                    nextPaymentInput.disabled = true;
                 } else {
-                    // Data padrão (29 do mês)
-                    const today = new Date();
-                    const defaultDate = new Date(today.getFullYear(), today.getMonth(), 29);
-                    nextPaymentInput.value = defaultDate.toISOString().split('T')[0];
-                    console.log('✅ Próximo pagamento atualizado com data padrão:', defaultDate.toISOString().split('T')[0]);
+                    nextPaymentInput.disabled = false;
+                    const chave = `${this.currentYear}-${this.currentMonth}`;
+                    this.debugLog('🔍 Atualizando próximo pagamento:', { chave, nextPaymentDates: this.data.nextPaymentDates });
+
+                    if (this.data.nextPaymentDates && this.data.nextPaymentDates[chave]) {
+                        // Usar data salva
+                        nextPaymentInput.value = this.data.nextPaymentDates[chave];
+                        this.debugLog('✅ Próximo pagamento atualizado com data salva:', this.data.nextPaymentDates[chave]);
+                    } else {
+                        // Data padrão (29 do mês)
+                        const defaultDate = new Date(this.currentYear, this.currentMonth - 1, 29);
+                        nextPaymentInput.value = defaultDate.toISOString().split('T')[0];
+                        console.log('✅ Próximo pagamento atualizado com data padrão:', defaultDate.toISOString().split('T')[0]);
+                    }
                 }
             } else {
                 console.error('❌ Elemento next-payment-input não encontrado');
@@ -3102,7 +3571,7 @@ class ControleGastos {
                 dailyExpenseElement.textContent = `R$ ${dailyExpense.toFixed(2)}`;
 
                 // Aplicar classes CSS em vez de cores inline
-                if (dailyExpense < 22) {
+                if (dailyExpense < this.dailyExpenseIdeal) {
                     dailyExpenseElement.className = 'value negative';
                 } else {
                     dailyExpenseElement.className = 'value positive';
@@ -3141,7 +3610,7 @@ class ControleGastos {
                 meuSalario = 0;
                 totalTransferido = 0;
 
-                const monthsToInclude = this.periodFilter ? this.getFilteredMonths() : Object.keys(this.data[this.currentYear] || {});
+                const monthsToInclude = this.periodFilter ? this.getFilteredMonths() : this.getYearMonthKeys();
 
                 monthsToInclude.forEach(month => {
                     const monthData = this.data[this.currentYear][month];
@@ -3169,7 +3638,7 @@ class ControleGastos {
                 const period = this.periodFilter ? `${this.getMonthName(this.periodFilter.startMonth)} a ${this.getMonthName(this.periodFilter.endMonth)}` : 'ANO TODO';
                 console.log(`📊 Calculando análise 50/30/20 para período: ${period}`);
 
-                const monthsToInclude = this.periodFilter ? this.getFilteredMonths() : Object.keys(this.data[this.currentYear] || {});
+                const monthsToInclude = this.periodFilter ? this.getFilteredMonths() : this.getYearMonthKeys();
 
                 monthsToInclude.forEach(month => {
                     if (this.data[this.currentYear][month]) {
@@ -3610,7 +4079,7 @@ class ControleGastos {
         let creditExpenses = [];
         if (this.currentMonth === 'total') {
             // Para total, somar todos os gastos do cartão do ano
-            Object.keys(this.data[this.currentYear] || {}).forEach(month => {
+            this.getYearMonthKeys().forEach(month => {
                 if (this.data[this.currentYear][month] && this.data[this.currentYear][month].creditCard) {
                     creditExpenses = creditExpenses.concat(this.data[this.currentYear][month].creditCard);
                 }
@@ -3671,6 +4140,7 @@ class ControleGastos {
     // Alternar status de pago
     async togglePaidStatus(type, id, paid) {
         console.log('🔄 togglePaidStatus chamado:', { type, id, paid });
+        const expandedMobileRowKey = this.getExpandedMobileRowKey();
 
         if (type === 'credit') {
             // Salvar o status do resumo do cartão
@@ -3681,6 +4151,7 @@ class ControleGastos {
             this.debugLog('💳 Status do resumo salvo:', this.data.creditSummaryStatus);
             await this.saveData();
             this.renderAll();
+            this.restoreExpandedMobileRow(expandedMobileRowKey);
             return;
         }
 
@@ -3695,6 +4166,7 @@ class ControleGastos {
                 this.debugLog('💳 Status do resumo salvo:', this.data.creditSummaryStatus);
                 await this.saveData();
                 this.renderAll();
+                this.restoreExpandedMobileRow(expandedMobileRowKey);
                 return;
             }
 
@@ -3724,6 +4196,7 @@ class ControleGastos {
                 this.debugLog('💰 Status do gasto salvo:', item);
                 await this.saveData();
                 this.renderAll();
+                this.restoreExpandedMobileRow(expandedMobileRowKey);
             }
         }
     }
@@ -3823,6 +4296,26 @@ class ControleGastos {
         confirmModal.style.display = 'block';
     }
 
+    showNotification(message, type = 'info') {
+        let notification = document.getElementById('app-notification');
+
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'app-notification';
+            notification.setAttribute('role', 'status');
+            notification.setAttribute('aria-live', 'polite');
+            document.body.appendChild(notification);
+        }
+
+        notification.className = `app-notification is-${type} is-visible`;
+        notification.textContent = message;
+
+        clearTimeout(this.notificationTimer);
+        this.notificationTimer = setTimeout(() => {
+            notification.classList.remove('is-visible');
+        }, 3500);
+    }
+
     // Salvar item
     async saveItem() {
         const description = document.getElementById('description').value;
@@ -3835,15 +4328,18 @@ class ControleGastos {
             return;
         }
 
+        let saved;
         if (this.editingItem) {
             this.debugLog('✏️ Editando item existente:', this.editingItem);
             // Editar item existente
-            this.updateExistingItem(description, value);
+            saved = this.updateExistingItem(description, value);
         } else {
             console.log('➕ Adicionando novo item');
             // Adicionar novo item
-            this.addNewItem(description, value);
+            saved = this.addNewItem(description, value);
         }
+
+        if (!saved) return;
 
         this.closeModal();
         this.renderAll();
@@ -3859,13 +4355,12 @@ class ControleGastos {
         // Se estiver no modo "total", não permitir adicionar novos itens
         if (this.currentMonth === 'total') {
             alert('Para adicionar gastos, selecione um mês específico primeiro.');
-            return;
+            return false;
         }
 
         const month = this.currentMonth;
         const year = this.currentYear;
 
-        // Garantir que os dados do mês existam
         this.ensureMonthDataExists();
         const monthData = this.getCurrentMonthData();
 
@@ -3910,9 +4405,11 @@ class ControleGastos {
                 const parsedDate = this.validarDataInput(date);
                 if (!parsedDate) {
                     alert('Data inválida! Por favor, selecione uma data válida.');
-                    return;
+                    return false;
                 }
-                monthData.dailyExpenses.push({
+                this.ensureMonthDataExists(parsedDate.year, parsedDate.month);
+                const dailyMonthData = this.getMonthData(parsedDate.year, parsedDate.month);
+                dailyMonthData.dailyExpenses.push({
                     id: newId,
                     date,
                     value,
@@ -3923,6 +4420,7 @@ class ControleGastos {
         }
 
         this.debugLog('✅ Item adicionado com sucesso. Dados finais do mês:', monthData);
+        return true;
     }
 
     // Atualizar item existente
@@ -3947,19 +4445,37 @@ class ControleGastos {
                 // item.paid sempre true para cartão
                 break;
             case 'daily':
-                item.description = description;
-                item.value = value;
-                item.date = document.getElementById('date').value;
-                const parsedDate = this.validarDataInput(item.date);
+                const date = document.getElementById('date').value;
+                const parsedDate = this.validarDataInput(date);
                 if (!parsedDate) {
                     alert('Data inválida! Por favor, selecione uma data válida.');
-                    return;
+                    return false;
                 }
+
+                Object.keys(this.data).forEach(year => {
+                    if (typeof this.data[year] !== 'object' || this.data[year] === null) return;
+
+                    Object.keys(this.data[year]).forEach(month => {
+                        const monthData = this.data[year][month];
+                        if (Array.isArray(monthData?.dailyExpenses)) {
+                            monthData.dailyExpenses = monthData.dailyExpenses.filter(expense => expense.id !== item.id);
+                        }
+                    });
+                });
+
+                item.description = description;
+                item.value = value;
+                item.date = date;
                 item.month = parsedDate.month;
                 item.year = parsedDate.year;
+
+                this.ensureMonthDataExists(parsedDate.year, parsedDate.month);
+                this.getMonthData(parsedDate.year, parsedDate.month).dailyExpenses.push(item);
                 this.debugLog('✅ Item diário atualizado:', item);
                 break;
         }
+
+        return true;
     }
 
     // Editar item
@@ -4168,7 +4684,10 @@ class ControleGastos {
 
         // Mostrar sempre formatado como moeda ao carregar
         const chave = `${this.currentYear}-${this.currentMonth}`;
-        const valorSalvo = (this.data.monthBalance && this.data.monthBalance[chave]) || 0;
+        const valorSalvo = (
+            this.data.monthBalance &&
+            Object.prototype.hasOwnProperty.call(this.data.monthBalance, chave)
+        ) ? this.data.monthBalance[chave] : 0;
         input.value = this.formatarMoeda(valorSalvo);
 
         // Preparar campo para edição ao focar
@@ -4296,7 +4815,7 @@ class ControleGastos {
     }
 
     // Atualizar cálculos da renda familiar
-    async atualizarRendaFamiliar() {
+    async atualizarRendaFamiliar(saveChanges = true) {
         try {
             console.log('💰 Atualizando cálculos da renda familiar...');
 
@@ -4323,9 +4842,6 @@ class ControleGastos {
             this.rendaFamiliar.meuSalario = meuSalario;
             this.rendaFamiliar.salarioDela = salarioDela;
             this.rendaFamiliar.totalTransferido = totalTransferido;
-
-            // Salvar no localStorage
-            await this.saveRendaFamiliar();
 
             // LÓGICA DOS CÁLCULOS
             // Despesas Joceline = Salário Joceline - Total Transferido
@@ -4373,9 +4889,6 @@ class ControleGastos {
 
 
 
-                // Salvar no localStorage após atualizar interface
-                await this.saveRendaFamiliar();
-
                 // Verificar se os valores foram formatados corretamente
                 console.log('🔍 Verificação da formatação:', {
                     'despesasDela original': despesasDela,
@@ -4396,8 +4909,9 @@ class ControleGastos {
             // Log para debug
             this.debugLog('🔍 Valores finais da renda familiar:', this.rendaFamiliar);
 
-            // Salvar dados
-            await this.saveRendaFamiliar();
+            if (saveChanges) {
+                await this.saveRendaFamiliar();
+            }
 
             // Atualizar análise 50/30/20 automaticamente
             setTimeout(() => {
@@ -4505,8 +5019,10 @@ class ControleGastos {
             this.atualizarStatusSincronizacao('🔄 Sincronizando...', 'syncing');
             this.desabilitarBotoesSincronizacao();
 
-            // Usar a função que já existe
-            await this.saveToFirestore();
+            const saved = await this.saveToFirestore();
+            if (!saved) {
+                throw new Error('O envio para a nuvem não foi concluído');
+            }
 
             this.ultimaSincronizacao = new Date();
             this.atualizarStatusSincronizacao('✅ Sincronizado', 'success');
@@ -4529,9 +5045,15 @@ class ControleGastos {
             this.atualizarStatusSincronizacao('📥 Baixando...', 'syncing');
             this.desabilitarBotoesSincronizacao();
 
-            // Usar a função que já existe
-            await this.loadUserData();
-            this.atualizarStatusSincronizacao('✅ Dados baixados com sucesso', 'success');
+            const source = await this.loadUserData();
+            if (source === 'error') {
+                throw new Error('Não foi possível acessar os dados da nuvem');
+            }
+            if (source === 'cloud') {
+                this.atualizarStatusSincronizacao('✅ Dados baixados com sucesso', 'success');
+            } else {
+                this.atualizarStatusSincronizacao('ℹ️ Nuvem vazia — dados locais preservados', 'success');
+            }
 
             this.habilitarBotoesSincronizacao();
         } catch (error) {
@@ -4776,16 +5298,16 @@ class ControleGastos {
         console.log('📅 Data original:', date);
         this.debugLog('📅 Data processada:', newExpense.date);
 
-        // Garantir que os dados do mês existam
-        this.ensureMonthDataExists();
-        const monthData = this.getCurrentMonthData();
+        // Salvar no mês correspondente à data selecionada
+        this.ensureMonthDataExists(parsedDate.year, parsedDate.month);
+        const monthData = this.getMonthData(parsedDate.year, parsedDate.month);
 
         console.log('🔍 Estrutura antes de adicionar:', {
             currentMonth: this.currentMonth,
             currentYear: this.currentYear,
             gastoMonth: newExpense.month,
             gastoYear: newExpense.year,
-            monthDataPath: `${this.currentYear}.${this.currentMonth}`,
+            monthDataPath: `${parsedDate.year}.${parsedDate.month}`,
             dailyExpensesLength: monthData.dailyExpenses ? monthData.dailyExpenses.length : 0
         });
 
@@ -4820,7 +5342,7 @@ class ControleGastos {
         let dailyExpenses = [];
         if (this.currentMonth === 'total') {
             // Para total, somar todos os meses do ano
-            Object.keys(this.data[this.currentYear] || {}).forEach(month => {
+            this.getYearMonthKeys().forEach(month => {
                 if (this.data[this.currentYear][month] && this.data[this.currentYear][month].dailyExpenses) {
                     dailyExpenses = dailyExpenses.concat(this.data[this.currentYear][month].dailyExpenses);
                 }
@@ -5030,7 +5552,7 @@ class ControleGastos {
             let dailyExpenses = [];
             if (this.currentMonth === 'total') {
                 // Para total, somar todos os meses do ano
-                Object.keys(this.data[this.currentYear] || {}).forEach(month => {
+                this.getYearMonthKeys().forEach(month => {
                     if (this.data[this.currentYear][month] && this.data[this.currentYear][month].dailyExpenses) {
                         dailyExpenses = dailyExpenses.concat(this.data[this.currentYear][month].dailyExpenses);
                     }
@@ -5058,7 +5580,7 @@ class ControleGastos {
                 // Limpar gastos do mês atual
                 if (this.currentMonth === 'total') {
                     // Limpar todos os meses do ano
-                    Object.keys(this.data[this.currentYear] || {}).forEach(month => {
+                    this.getYearMonthKeys().forEach(month => {
                         if (this.data[this.currentYear][month]) {
                             this.data[this.currentYear][month].dailyExpenses = [];
                         }
@@ -5079,6 +5601,11 @@ class ControleGastos {
     // Copiar gastos do mês anterior
     copyPreviousMonthExpenses() {
         console.log('🔄 Botão clicado - iniciando cópia de gastos...');
+
+        if (this.currentMonth === 'total') {
+            this.showNotification('Selecione um mês específico antes de copiar os gastos.', 'warning');
+            return;
+        }
 
         // Remover teste - função funcionando
 
@@ -5148,12 +5675,12 @@ class ControleGastos {
     // Função para executar a cópia dos gastos (chamada após confirmação)
     async executarCopiadeGastos(previousMonthData, currentMonthData, previousMonth, previousYear) {
         let gastosCopiados = 0;
+        currentMonthData.expenses = [];
+        currentMonthData.creditCard = [];
 
         // Copiar gastos mensais do mês anterior
         if (previousMonthData.expenses && previousMonthData.expenses.length > 0) {
             this.debugLog('📋 Copiando', previousMonthData.expenses.length, 'gastos mensais');
-
-            currentMonthData.expenses = [];
             previousMonthData.expenses.forEach(expense => {
                 // Criar nova cópia com ID único
                 const newExpense = {
@@ -5175,8 +5702,6 @@ class ControleGastos {
         // Copiar gastos com cartão do mês anterior
         if (previousMonthData.creditCard && previousMonthData.creditCard.length > 0) {
             this.debugLog('📋 Copiando', previousMonthData.creditCard.length, 'gastos com cartão');
-
-            currentMonthData.creditCard = [];
             previousMonthData.creditCard.forEach(expense => {
                 // Criar nova cópia com ID único
                 const newExpense = {
@@ -5195,15 +5720,10 @@ class ControleGastos {
             gastosCopiados += previousMonthData.creditCard.length;
         }
 
-        if (gastosCopiados > 0) {
-            await this.saveData();
-            this.renderAll();
-            console.log('✅ Gastos copiados com sucesso');
-            this.showNotification(`Gastos copiados do mês anterior (${previousMonth}/${previousYear})! Total: ${gastosCopiados} gastos.`, 'success');
-        } else {
-            console.log('ℹ️ Não há gastos para copiar no mês anterior');
-            this.showNotification('Não há gastos para copiar no mês anterior.', 'info');
-        }
+        await this.saveData();
+        this.renderAll();
+        console.log('✅ Gastos copiados com sucesso');
+        this.showNotification(`Gastos copiados do mês anterior (${previousMonth}/${previousYear})! Total: ${gastosCopiados} gastos.`, 'success');
     }
 
     // Configurar botão flutuante para voltar ao topo
@@ -5392,7 +5912,7 @@ class ControleGastos {
     // Obter meses filtrados
     getFilteredMonths() {
         if (!this.periodFilter) {
-            const allMonths = Object.keys(this.data[this.currentYear] || {});
+            const allMonths = this.getYearMonthKeys();
             return allMonths;
         }
 
@@ -5828,153 +6348,6 @@ class ControleGastos {
         });
     }
 
-    // === EFEITOS ESPECIAIS PARA SINCRONIZAÇÃO ===
-
-    // Adicionar efeitos visuais aos botões de sync
-    setupSyncEffects() {
-        const syncButtons = document.querySelectorAll('.btn-sync');
-
-        syncButtons.forEach(button => {
-            // Efeito de partículas no clique
-            button.addEventListener('click', (e) => {
-                if (!button.disabled) {
-                    this.createClickEffect(e);
-                    this.addSyncingState(button);
-                }
-            });
-
-            // Efeito hover com ondas
-            button.addEventListener('mouseenter', () => {
-                if (!button.disabled) {
-                    this.createRippleEffect(button);
-                }
-            });
-        });
-
-        console.log('✨ Efeitos especiais de sincronização configurados');
-    }
-
-    // Criar efeito de clique com partículas
-    createClickEffect(event) {
-        const button = event.currentTarget;
-        const rect = button.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        // Criar partículas
-        for (let i = 0; i < 6; i++) {
-            const particle = document.createElement('div');
-            particle.style.cssText = `
-                position: absolute;
-                left: ${x}px;
-                top: ${y}px;
-                width: 4px;
-                height: 4px;
-                background: white;
-                border-radius: 50%;
-                pointer-events: none;
-                z-index: 1000;
-                animation: particle-burst 0.6s ease-out forwards;
-            `;
-
-            const angle = (360 / 6) * i;
-            const distance = 20 + Math.random() * 15;
-            particle.style.setProperty('--angle', `${angle}deg`);
-            particle.style.setProperty('--distance', `${distance}px`);
-
-            button.appendChild(particle);
-
-            setTimeout(() => {
-                if (particle.parentNode) {
-                    particle.parentNode.removeChild(particle);
-                }
-            }, 600);
-        }
-
-        // Adicionar CSS para animação de partículas se não existir
-        if (!document.getElementById('particle-styles')) {
-            const style = document.createElement('style');
-            style.id = 'particle-styles';
-            style.textContent = `
-                @keyframes particle-burst {
-                    0% {
-                        transform: translate(0, 0) scale(1);
-                        opacity: 1;
-                    }
-                    100% {
-                        transform: translate(
-                            calc(cos(var(--angle)) * var(--distance)),
-                            calc(sin(var(--angle)) * var(--distance))
-                        ) scale(0);
-                        opacity: 0;
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-    }
-
-    // Criar efeito de ondas no hover
-    createRippleEffect(button) {
-        const ripple = document.createElement('div');
-        ripple.style.cssText = `
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(0);
-            animation: ripple-effect 0.6s linear;
-            pointer-events: none;
-            left: 50%;
-            top: 50%;
-            width: 100px;
-            height: 100px;
-            margin-left: -50px;
-            margin-top: -50px;
-        `;
-
-        button.appendChild(ripple);
-
-        setTimeout(() => {
-            if (ripple.parentNode) {
-                ripple.parentNode.removeChild(ripple);
-            }
-        }, 600);
-
-        // Adicionar CSS para animação de ripple se não existir
-        if (!document.getElementById('ripple-styles')) {
-            const style = document.createElement('style');
-            style.id = 'ripple-styles';
-            style.textContent = `
-                @keyframes ripple-effect {
-                    to {
-                        transform: scale(2);
-                        opacity: 0;
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-    }
-
-    // Adicionar estado de sincronização
-    addSyncingState(button) {
-        button.classList.add('syncing');
-        const originalText = button.innerHTML;
-
-        // Simular processo de sync
-        setTimeout(() => {
-            button.classList.remove('syncing');
-
-            // Efeito de sucesso
-            button.style.background = 'linear-gradient(135deg, #10B981 0%, #059669 100%)';
-            button.innerHTML = '<i class="fas fa-check"></i> Sucesso!';
-
-            setTimeout(() => {
-                button.style.background = '';
-                button.innerHTML = originalText;
-            }, 2000);
-        }, 3000);
-    }
 }
 
 /* ===============================
@@ -6031,7 +6404,8 @@ async function sincronizarDados() {
     criarBackupLocal();
 
     try {
-        await app.saveToFirestore();
+        const saved = await app.saveToFirestore();
+        if (!saved) throw new Error('O envio para o Firestore não foi concluído');
         alert("✅ Dados sincronizados com sucesso!");
         console.log("✅ Sincronização concluída com sucesso!");
     } catch (e) {

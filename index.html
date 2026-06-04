@@ -485,16 +485,18 @@
                     <h3>Entradas</h3>
                     <div class="income-item">
                         <label for="my-salary">Salário Guilherme (R$):</label>
-                        <input type="text" id="my-salary" placeholder="R$ 0,00" value="R$ 0,00" inputmode="numeric">
+                        <input type="text" id="my-salary" placeholder="R$ 0,00" value="R$ 0,00" inputmode="numeric"
+                            data-private-value>
                     </div>
                     <div class="income-item">
                         <label for="her-salary">Salário Joceline (R$):</label>
-                        <input type="text" id="her-salary" placeholder="R$ 0,00" value="R$ 0,00" inputmode="numeric">
+                        <input type="text" id="her-salary" placeholder="R$ 0,00" value="R$ 0,00" inputmode="numeric"
+                            data-private-value>
                     </div>
                     <div class="income-item">
                         <label for="total-transferred">Total transferido (R$):</label>
                         <input type="text" id="total-transferred" placeholder="R$ 0,00" value="R$ 0,00"
-                            inputmode="numeric">
+                            inputmode="numeric" data-private-value>
                     </div>
                 </div>
 
@@ -860,21 +862,59 @@
             </label>
         </div>
 
+        <div class="settings-section">
+            <h3>Planejamento</h3>
+            <label class="settings-field" for="daily-expense-ideal-input">
+                <span>Mínimo ideal diário</span>
+                <span class="settings-money-control">
+                    <span aria-hidden="true">R$</span>
+                    <input type="number" id="daily-expense-ideal-input" min="0" step="0.01" inputmode="decimal">
+                </span>
+                <small>Abaixo desse valor, o gasto diário fica vermelho. Igual ou acima, fica verde.</small>
+            </label>
+        </div>
+
+        <div class="settings-section settings-backup-section">
+            <div class="settings-backup-heading">
+                <h3>Backup local</h3>
+                <p>Baixe uma cópia completa dos seus dados para guardar neste dispositivo.</p>
+            </div>
+            <div class="settings-backup-actions">
+                <button type="button" class="settings-backup-btn settings-backup-primary" id="download-backup-btn">
+                    <i class="fas fa-file-download"></i>
+                    Baixar backup completo
+                </button>
+                <button type="button" class="settings-backup-btn" id="restore-backup-btn">
+                    <i class="fas fa-file-import"></i>
+                    Restaurar backup
+                </button>
+                <input type="file" id="restore-backup-input" accept=".json,application/json" hidden>
+            </div>
+            <p class="settings-backup-note">
+                Inclui todos os meses, gastos, salários, status e configurações. A restauração não envia dados
+                automaticamente para a nuvem.
+            </p>
+            <div class="settings-backup-status" id="backup-status-text" aria-live="polite"></div>
+        </div>
+
         <div class="settings-section settings-sync-section">
-            <h3>Sincronização</h3>
+            <div class="settings-sync-heading">
+                <h3>Sincronização</h3>
+                <p>Gerencie o backup dos seus dados na nuvem.</p>
+            </div>
             <div class="sync-controls settings-sync-controls">
                 <div class="sync-buttons">
-                    <button class="btn btn-sync" id="sync-now-btn" onclick="app.sincronizarAgora()" disabled>
+                    <button type="button" class="btn btn-sync" id="sync-now-btn" onclick="app.sincronizarAgora()" disabled>
                         <i class="fas fa-cloud-upload-alt"></i> Enviar para nuvem
                     </button>
-                    <button class="btn btn-sync" id="sync-download-btn" onclick="app.baixarDaNuvem()" disabled>
+                    <button type="button" class="btn btn-sync" id="sync-download-btn" onclick="app.baixarDaNuvem()" disabled>
                         <i class="fas fa-cloud-download-alt"></i> Baixar da nuvem
                     </button>
                 </div>
 
                 <div class="sync-status-info">
                     <div class="sync-status-main">
-                        <i class="fas fa-cloud" style="color: var(--primary-color);"></i>
+                        <i class="fas fa-cloud" aria-hidden="true"></i>
                         <span id="sync-status-text">Conectando...</span>
                     </div>
                     <div class="sync-status-sub">
