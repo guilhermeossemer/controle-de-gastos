@@ -6958,31 +6958,160 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     text-align: center;
 }
 
-/* Loading spinner */
+/* Tela de carregamento */
+.auth-container.is-loading .auth-box {
+    display: none;
+}
+
 .auth-loading {
+    display: none;
+    width: 100%;
+    min-height: 420px;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    color: white;
+    color: #fff;
 }
 
-.spinner {
-    width: 50px;
-    height: 50px;
-    border: 4px solid rgba(255, 255, 255, 0.3);
-    border-top-color: white;
-    border-radius: 50%;
+.auth-container.is-loading .auth-loading {
+    display: flex;
+}
+
+.loading-card {
+    width: min(360px, 100%);
+    padding: 34px 28px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 24px;
+    background: rgba(16, 20, 37, 0.34);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.22);
+    animation: loadingCardIn 0.45s ease both;
+}
+
+.loading-logo {
+    width: 76px;
+    height: 76px;
     margin: 0 auto 20px;
-    animation: spin 1s linear infinite;
+    border-radius: 20px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: rgba(17, 20, 37, 0.9);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2);
+    animation: loadingLogoPulse 1.8s ease-in-out infinite;
 }
 
-@keyframes spin {
+.loading-orbit {
+    position: relative;
+    width: 78px;
+    height: 18px;
+    margin: 0 auto 18px;
+}
+
+.loading-orbit span {
+    position: absolute;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fff;
+    opacity: 0.45;
+    animation: loadingDot 1.2s ease-in-out infinite;
+}
+
+.loading-orbit span:nth-child(1) {
+    left: 18px;
+}
+
+.loading-orbit span:nth-child(2) {
+    left: 35px;
+    animation-delay: 0.15s;
+}
+
+.loading-orbit span:nth-child(3) {
+    left: 52px;
+    animation-delay: 0.3s;
+}
+
+.loading-card h2 {
+    margin: 0 0 8px;
+    color: #fff;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+.loading-card p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.74);
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+.loading-bar {
+    height: 5px;
+    margin-top: 24px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.loading-bar span {
+    display: block;
+    width: 42%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.55), #fff);
+    animation: loadingBar 1.25s ease-in-out infinite;
+}
+
+@keyframes loadingCardIn {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.98);
+    }
+
     to {
-        transform: rotate(360deg);
+        opacity: 1;
+        transform: translateY(0) scale(1);
     }
 }
 
-.auth-loading p {
-    font-size: 1.1rem;
-    font-weight: 500;
+@keyframes loadingLogoPulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.04);
+    }
+}
+
+@keyframes loadingDot {
+
+    0%,
+    100% {
+        transform: translateY(0);
+        opacity: 0.38;
+    }
+
+    50% {
+        transform: translateY(-6px);
+        opacity: 1;
+    }
+}
+
+@keyframes loadingBar {
+    0% {
+        transform: translateX(-110%);
+    }
+
+    100% {
+        transform: translateX(250%);
+    }
 }
 
 /* Informações do usuário no header */
@@ -7707,7 +7836,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     }
 
     #gastos-mes-section .mobile-summary-row {
-        cursor: default;
+        cursor: pointer;
     }
 
     #cartao-credito-section .mobile-expandable-row.essential,
@@ -8073,14 +8202,6 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
         align-items: center;
         justify-content: flex-end;
         gap: 8px;
-    }
-
-    #gastos-mes-section .mobile-summary-row .mobile-status-control {
-        display: inline-flex !important;
-    }
-
-    #gastos-mes-section .mobile-summary-row .mobile-status-action-text {
-        display: none;
     }
 
     .app-notification {

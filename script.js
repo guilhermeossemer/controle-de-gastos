@@ -24,9 +24,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const appContainer = document.getElementById('app-container');
     const authLoading = document.getElementById('auth-loading');
 
-    if (authContainer) authContainer.style.display = 'none';
+    if (authContainer) {
+        authContainer.style.display = 'flex';
+        authContainer.classList.add('is-loading');
+    }
     if (appContainer) appContainer.style.display = 'none';
-    if (authLoading) authLoading.style.display = 'flex';
+    if (authLoading) authLoading.style.display = '';
 });
 
 // Função para inicializar Firebase
@@ -53,9 +56,36 @@ function initFirebase() {
 
             // Observar mudanças no estado de autenticação
             auth.onAuthStateChanged(handleAuthStateChanged);
+        } else if (typeof firebase === 'undefined') {
+            const authContainer = document.getElementById('auth-container');
+            const authLoading = document.getElementById('auth-loading');
+            const loginError = document.getElementById('login-error');
+
+            if (authContainer) {
+                authContainer.style.display = 'flex';
+                authContainer.classList.remove('is-loading');
+            }
+            if (authLoading) authLoading.style.display = 'none';
+            if (loginError) {
+                loginError.textContent = 'Não foi possível carregar a conexão. Verifique a internet e recarregue a página.';
+                loginError.style.display = 'block';
+            }
         }
     } catch (error) {
         console.error('❌ Erro ao inicializar Firebase:', error);
+        const authContainer = document.getElementById('auth-container');
+        const authLoading = document.getElementById('auth-loading');
+        const loginError = document.getElementById('login-error');
+
+        if (authContainer) {
+            authContainer.style.display = 'flex';
+            authContainer.classList.remove('is-loading');
+        }
+        if (authLoading) authLoading.style.display = 'none';
+        if (loginError) {
+            loginError.textContent = 'Não foi possível iniciar o aplicativo. Recarregue a página e tente novamente.';
+            loginError.style.display = 'block';
+        }
     }
 }
 
@@ -65,18 +95,26 @@ async function handleAuthStateChanged(user) {
     const appContainer = document.getElementById('app-container');
     const authLoading = document.getElementById('auth-loading');
 
-    if (authLoading) authLoading.style.display = 'none';
-
     if (user) {
         // Usuário logado
         console.log('✅ Usuário autenticado:', user.email);
         currentUser = user;
 
+        if (authContainer) {
+            authContainer.style.display = 'flex';
+            authContainer.classList.add('is-loading');
+        }
+        if (appContainer) appContainer.style.display = 'none';
+        if (authLoading) authLoading.style.display = '';
+
         // Verificar se o email foi verificado
         if (!user.emailVerified) {
             console.log('⚠️ Email não verificado');
 
-            if (authContainer) authContainer.style.display = 'flex';
+            if (authContainer) {
+                authContainer.style.display = 'flex';
+                authContainer.classList.remove('is-loading');
+            }
             if (appContainer) appContainer.style.display = 'none';
             if (authLoading) authLoading.style.display = 'none';
 
@@ -97,11 +135,6 @@ async function handleAuthStateChanged(user) {
             }
         }
 
-        // Esconder tela de login e mostrar app
-        if (authContainer) authContainer.style.display = 'none';
-        if (appContainer) appContainer.style.display = 'block';
-        if (authLoading) authLoading.style.display = 'none';
-
         // Inicializar aplicação com dados do usuário
         if (typeof app !== 'undefined' && app) {
             app.userId = user.uid;
@@ -111,6 +144,14 @@ async function handleAuthStateChanged(user) {
                 app.enableSyncButtons();
             }
         }
+
+        // Esconder tela de carregamento e mostrar app já preparado
+        if (authContainer) {
+            authContainer.classList.remove('is-loading');
+            authContainer.style.display = 'none';
+        }
+        if (appContainer) appContainer.style.display = 'block';
+        if (authLoading) authLoading.style.display = 'none';
     } else {
         // Usuário não logado
         console.log('⚠️ Usuário não autenticado');
@@ -130,7 +171,10 @@ async function handleAuthStateChanged(user) {
         }
 
         // Mostrar tela de login e esconder app
-        if (authContainer) authContainer.style.display = 'flex';
+        if (authContainer) {
+            authContainer.style.display = 'flex';
+            authContainer.classList.remove('is-loading');
+        }
         if (appContainer) appContainer.style.display = 'none';
         if (authLoading) authLoading.style.display = 'none';
     }
@@ -3176,9 +3220,12 @@ class ControleGastos {
                 const essentialStatus = this.getCreditSummaryStatus('credit-essential');
                 console.log('💳 Status do resumo Essencial:', essentialStatus);
                 tableContent += `
-                    <tr class="credit-summary-row essential mobile-summary-row">
+                    <tr class="credit-summary-row essential mobile-summary-row mobile-expandable-row" data-mobile-row-key="summary-credit-essential" aria-expanded="false" onclick="app.toggleMobileExpenseRow(event, this)">
                         <td class="mobile-item-description">
                             <span>Resumo Cartão - Essencial</span>
+                            <button type="button" class="mobile-row-toggle" aria-label="Mostrar detalhes" onclick="app.toggleMobileExpenseRow(event, this.closest('tr'), true)">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
                         </td>
                         <td class="mobile-item-value">R$ ${creditEssential.toFixed(2)}</td>
                         <td class="mobile-item-percentage">${totalExpense > 0 ? ((creditEssential / totalExpense) * 100).toFixed(1) : '0.0'}%</td>
@@ -3193,7 +3240,16 @@ class ControleGastos {
                                 </label>
                             </span>
                         </td>
-                        <td class="mobile-item-actions"><em>Resumo automático</em></td>
+                        <td class="mobile-item-actions">
+                            <span class="mobile-expanded-status-action">
+                                <span>Status do pagamento</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" ${essentialStatus ? 'checked' : ''} onchange="app.togglePaidStatus('credit', 'credit-essential', this.checked)">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </span>
+                            <em>Resumo automático</em>
+                        </td>
                     </tr>
                 `;
             }
@@ -3202,9 +3258,12 @@ class ControleGastos {
                 const desireStatus = this.getCreditSummaryStatus('credit-desire');
                 console.log('💳 Status do resumo Desejo:', desireStatus);
                 tableContent += `
-                    <tr class="credit-summary-row desire mobile-summary-row">
+                    <tr class="credit-summary-row desire mobile-summary-row mobile-expandable-row" data-mobile-row-key="summary-credit-desire" aria-expanded="false" onclick="app.toggleMobileExpenseRow(event, this)">
                         <td class="mobile-item-description">
                             <span>Resumo Cartão - Desejo</span>
+                            <button type="button" class="mobile-row-toggle" aria-label="Mostrar detalhes" onclick="app.toggleMobileExpenseRow(event, this.closest('tr'), true)">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
                         </td>
                         <td class="mobile-item-value">R$ ${creditDesire.toFixed(2)}</td>
                         <td class="mobile-item-percentage">${totalExpense > 0 ? ((creditDesire / totalExpense) * 100).toFixed(1) : '0.0'}%</td>
@@ -3219,7 +3278,16 @@ class ControleGastos {
                                 </label>
                             </span>
                         </td>
-                        <td class="mobile-item-actions"><em>Resumo automático</em></td>
+                        <td class="mobile-item-actions">
+                            <span class="mobile-expanded-status-action">
+                                <span>Status do pagamento</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" ${desireStatus ? 'checked' : ''} onchange="app.togglePaidStatus('credit', 'credit-desire', this.checked)">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </span>
+                            <em>Resumo automático</em>
+                        </td>
                     </tr>
                 `;
             }
@@ -3228,9 +3296,12 @@ class ControleGastos {
                 const investmentStatus = this.getCreditSummaryStatus('credit-investment');
                 console.log('💳 Status do resumo Investimento:', investmentStatus);
                 tableContent += `
-                    <tr class="credit-summary-row investment mobile-summary-row">
+                    <tr class="credit-summary-row investment mobile-summary-row mobile-expandable-row" data-mobile-row-key="summary-credit-investment" aria-expanded="false" onclick="app.toggleMobileExpenseRow(event, this)">
                         <td class="mobile-item-description">
                             <span>Resumo Cartão - Investimento</span>
+                            <button type="button" class="mobile-row-toggle" aria-label="Mostrar detalhes" onclick="app.toggleMobileExpenseRow(event, this.closest('tr'), true)">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
                         </td>
                         <td class="mobile-item-value">R$ ${creditInvestment.toFixed(2)}</td>
                         <td class="mobile-item-percentage">${totalExpense > 0 ? ((creditInvestment / totalExpense) * 100).toFixed(1) : '0.0'}%</td>
@@ -3245,7 +3316,16 @@ class ControleGastos {
                                 </label>
                             </span>
                         </td>
-                        <td class="mobile-item-actions"><em>Resumo automático</em></td>
+                        <td class="mobile-item-actions">
+                            <span class="mobile-expanded-status-action">
+                                <span>Status do pagamento</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" ${investmentStatus ? 'checked' : ''} onchange="app.togglePaidStatus('credit', 'credit-investment', this.checked)">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </span>
+                            <em>Resumo automático</em>
+                        </td>
                     </tr>
                 `;
             }

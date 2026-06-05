@@ -65,7 +65,7 @@
 
 <body>
     <!-- Tela de Autenticação -->
-    <div id="auth-container" class="auth-container">
+    <div id="auth-container" class="auth-container is-loading">
         <div class="auth-wrapper">
             <div class="auth-box">
                 <!-- Logo e Título -->
@@ -211,10 +211,23 @@
                 </div>
             </div>
 
-            <!-- Loading Spinner -->
-            <div id="auth-loading" class="auth-loading" style="display: none;">
-                <div class="spinner"></div>
-                <p>Carregando...</p>
+            <!-- Tela de carregamento -->
+            <div id="auth-loading" class="auth-loading" aria-live="polite">
+                <div class="loading-card">
+                    <div class="loading-logo">
+                        <img src="icon-192.png" alt="" class="brand-logo-img">
+                    </div>
+                    <div class="loading-orbit" aria-hidden="true">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <h2>Preparando seu controle</h2>
+                    <p>Carregando dados e sincronização...</p>
+                    <div class="loading-bar" aria-hidden="true">
+                        <span></span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
