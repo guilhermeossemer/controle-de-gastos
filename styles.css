@@ -6642,58 +6642,75 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     }
 }
 
-/* Botão flutuante para voltar ao topo */
-.back-to-top {
+/* Ações flutuantes */
+.floating-actions {
     position: fixed;
-    bottom: 30px;
-    right: 30px;
+    right: 24px;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.floating-action-btn {
     width: 60px;
     height: 60px;
-    background: var(--primary-color);
-    color: white;
-    border: none;
+    border: 1px solid rgba(var(--primary-rgb), 0.35);
     border-radius: 50%;
+    background: var(--primary-color);
+    color: #fff;
     cursor: pointer;
-    display: none;
+    display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.2rem;
-    box-shadow: var(--shadow);
-    transition: all 0.3s ease;
-    z-index: 1000;
+    box-shadow: 0 10px 26px rgba(var(--primary-rgb), 0.24);
+    transition: transform 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+    pointer-events: auto;
+}
+
+.floating-action-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+}
+
+.floating-action-btn:active {
+    transform: translateY(0) scale(0.97);
+}
+
+.floating-action-btn i {
+    pointer-events: none;
+}
+
+.floating-calculator-btn {
+    background: var(--gradient-primary);
+    box-shadow: none;
+}
+
+.back-to-top {
+    display: none;
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px) scale(0.96);
 }
 
 .back-to-top.show {
     display: flex;
     opacity: 1;
-    transform: translateY(0);
-}
-
-.back-to-top:hover {
-    background: var(--gradient-primary);
-    transform: translateY(-3px) scale(1.05);
-    box-shadow: var(--shadow-hover);
-}
-
-.back-to-top:active {
-    transform: translateY(-1px) scale(0.98);
-}
-
-.back-to-top i {
-    transition: transform 0.3s ease;
-}
-
-.back-to-top:hover i {
-    transform: translateY(-2px);
+    transform: translateY(0) scale(1);
 }
 
 /* Responsividade para o botão flutuante */
 @media (max-width: 768px) {
-    .back-to-top {
-        bottom: 20px;
-        right: 20px;
+    .floating-actions {
+        right: 16px;
+        bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+        gap: 8px;
+    }
+
+    .floating-action-btn {
         width: 50px;
         height: 50px;
         font-size: 1rem;
@@ -6701,9 +6718,12 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 @media (max-width: 480px) {
-    .back-to-top {
-        bottom: 15px;
-        right: 15px;
+    .floating-actions {
+        right: 14px;
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .floating-action-btn {
         width: 45px;
         height: 45px;
         font-size: 0.9rem;
@@ -7344,35 +7364,10 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 /* =========================
-   BOTÃO DISCRETO CALCULADORA
-========================= */
-.btn-icon.calculator-top-btn {
-    width: 42px;
-    height: 42px;
-    border: 1px solid var(--border-color);
-    background: var(--card-bg);
-    color: var(--text-primary);
-    border-radius: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.25s ease;
-    box-shadow: var(--shadow);
-    font-size: 1rem;
-}
-
-.btn-icon.calculator-top-btn:hover {
-    transform: translateY(-2px);
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-}
-
-/* =========================
    MODAL CALCULADORA
 ========================= */
 .calculator-modal-content {
-    max-width: 360px;
+    max-width: 340px;
     width: 92%;
     border-radius: 22px;
     overflow: hidden;
@@ -7382,12 +7377,12 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .calculator-container {
-    padding: 20px;
+    padding: 18px;
 }
 
 .calculator-display {
     width: 100%;
-    height: 64px;
+    height: 58px;
     border: 1px solid var(--input-border);
     border-radius: 14px;
     background: var(--input-bg);
@@ -7396,18 +7391,18 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     font-weight: 700;
     text-align: right;
     padding: 0 16px;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
     outline: none;
 }
 
 .calculator-buttons {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
+    gap: 10px;
 }
 
 .calculator-buttons button {
-    height: 58px;
+    height: 52px;
     border: none;
     border-radius: 14px;
     background: var(--card-bg);
@@ -7455,6 +7450,18 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     backdrop-filter: none !important;
     background: rgba(0, 0, 0, 0.2);
     /* leve escurecido opcional */
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    overflow-y: auto;
+}
+
+#calculator-modal .calculator-modal-content {
+    margin: auto;
+    height: auto;
+    min-height: 0;
+    max-height: calc(100vh - 36px);
+    overflow: hidden;
 }
 
 @media (max-width: 480px) {
@@ -7487,12 +7494,13 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 @media (max-width: 480px) {
     #calculator-modal {
-        align-items: flex-end;
+        align-items: center;
         justify-content: center;
+        padding: 12px;
     }
 
     .calculator-modal-content {
-        margin-bottom: 20px;
+        margin: auto;
         border-radius: 16px;
     }
 }
@@ -7504,7 +7512,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 18px;
+    padding: 14px 16px;
     background: transparent;
     border-bottom: none;
     border-radius: 0;
@@ -7598,6 +7606,64 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
         width: 32px;
         height: 32px;
         font-size: 1.15rem;
+    }
+}
+
+@media (max-height: 620px) {
+    #calculator-modal {
+        padding: 10px;
+    }
+
+    .calculator-container {
+        padding: 12px;
+    }
+
+    .calculator-display {
+        height: 46px;
+        margin-bottom: 10px;
+        font-size: 1.35rem;
+    }
+
+    .calculator-buttons {
+        gap: 8px;
+    }
+
+    .calculator-buttons button {
+        height: 42px;
+        border-radius: 10px;
+        font-size: 0.95rem;
+    }
+
+    #calculator-modal .modal-header {
+        padding: 10px 12px;
+    }
+
+    #calculator-modal .modal-header h3 {
+        font-size: 1rem;
+    }
+
+    #calculator-modal .close {
+        width: 30px;
+        height: 30px;
+        font-size: 1.05rem;
+    }
+}
+
+#calculator-modal .calculator-modal-content {
+    width: min(340px, calc(100vw - 36px));
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - 36px);
+    margin: auto !important;
+    padding: 0 !important;
+    flex: 0 0 auto;
+    overflow: hidden;
+}
+
+@media (max-width: 480px) {
+    #calculator-modal .calculator-modal-content {
+        width: min(280px, calc(100vw - 24px));
+        max-height: calc(100vh - 24px);
     }
 }
 

@@ -264,10 +264,6 @@
                                 <div class="sync-dot"></div>
                                 <span id="sync-status-text">Conectando...</span>
                             </div> -->
-                            <button class="btn-icon calculator-top-btn" onclick="openCalculatorModal()"
-                                title="Abrir calculadora">
-                                <i class="fas fa-calculator"></i>
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -1012,10 +1008,15 @@
 
 
 
-    <!-- Botão flutuante para voltar ao topo -->
-    <button id="back-to-top" class="back-to-top" title="Voltar ao topo">
-        <i class="fas fa-arrow-up"></i>
-    </button>
+    <!-- Ações flutuantes -->
+    <div class="floating-actions" aria-label="Ações rápidas">
+        <button id="back-to-top" class="floating-action-btn back-to-top" type="button" title="Voltar ao topo" aria-label="Voltar ao topo">
+            <i class="fas fa-arrow-up"></i>
+        </button>
+        <button class="floating-action-btn floating-calculator-btn" type="button" onclick="openCalculatorModal()" title="Abrir calculadora" aria-label="Abrir calculadora">
+            <i class="fas fa-calculator"></i>
+        </button>
+    </div>
 
     <script src="script.js"></script>
     <!-- Modal Calculadora -->
