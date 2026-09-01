@@ -533,6 +533,8 @@ class ControleGastos {
         // Flag para evitar múltiplas execuções de updateAnalysis
         this.isUpdatingAnalysis = false;
         this.analysisTimeout = null;
+        this.analysisChartTimeout = null;
+        this.analysisChartRetryTimeout = null;
 
         // Inicializar filtro de período
         this.periodFilter = {
@@ -3801,13 +3803,24 @@ class ControleGastos {
 
             // Atualizar gráfico com delay para garantir que o DOM esteja pronto
             console.log('⏰ Agendando criação dos gráficos...');
-            setTimeout(() => {
+            if (this.analysisChartTimeout) {
+                clearTimeout(this.analysisChartTimeout);
+                this.analysisChartTimeout = null;
+            }
+            if (this.analysisChartRetryTimeout) {
+                clearTimeout(this.analysisChartRetryTimeout);
+                this.analysisChartRetryTimeout = null;
+            }
+
+            this.analysisChartTimeout = setTimeout(() => {
+                this.analysisChartTimeout = null;
                 console.log('🚀 Executando updateBudgetChart...');
                 this.updateBudgetChart(idealEssential, idealDesire, idealInvestment, realEssential, realDesire, realInvestment);
             }, 1000);
 
             // Verificação adicional após 2 segundos
-            setTimeout(() => {
+            this.analysisChartRetryTimeout = setTimeout(() => {
+                this.analysisChartRetryTimeout = null;
                 console.log('🔍 Verificação adicional dos gráficos...');
                 if (!this.essentialChart || !this.desireChart || !this.investmentChart) {
                     console.log('⚠️ Gráficos não foram criados, tentando novamente...');
@@ -5945,6 +5958,7 @@ class ControleGastos {
         this.renderAnnualIncome();
         this.renderAnnualCredit();
         this.renderAnnualExpenses();
+        this.refreshAnalysisForPeriodFilter();
 
         // Atualizar valores do cabeçalho se estiver no modo "Total"
         if (this.currentMonth === 'total') {
@@ -5963,6 +5977,7 @@ class ControleGastos {
         this.renderAnnualIncome();
         this.renderAnnualCredit();
         this.renderAnnualExpenses();
+        this.refreshAnalysisForPeriodFilter();
 
         // Atualizar valores do cabeçalho se estiver no modo "Total"
         if (this.currentMonth === 'total') {
@@ -5970,6 +5985,15 @@ class ControleGastos {
         }
 
         console.log('🔄 Filtro resetado para ano todo');
+    }
+
+    refreshAnalysisForPeriodFilter() {
+        if (this.analysisTimeout) {
+            clearTimeout(this.analysisTimeout);
+            this.analysisTimeout = null;
+        }
+
+        this.updateAnalysis();
     }
 
     // Atualizar display do período selecionado
