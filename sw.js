@@ -1,123 +1,23 @@
-// Service Worker para Controle de Gastos PWA
-
-const CACHE_NAME = 'controle-gastos-v10';
-const urlsToCache = [
-  './index.html',
-  './styles.css',
-  './script.js',
-  './favicon.png',
-  './icon-192.png',
-  './icon-512.png'
-];
-
-// Instalação do Service Worker
-self.addEventListener('install', event => {
-  self.skipWaiting();
-
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      console.log('✅ Cache aberto');
-      return cache.addAll(urlsToCache);
-    })
-  );
-});
-
-// Ativação do Service Worker
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('🗑️ Cache antigo removido:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
-  );
-});
-
-// Interceptação de requisições
-self.addEventListener('fetch', event => {
-
-  const requestUrl = new URL(event.request.url);
-
-  if (requestUrl.origin !== location.origin) {
-    return;
-  }
-
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match('./index.html'))
-    );
-    return;
-  }
-
-  if (event.request.method !== 'GET') {
-    return;
-  }
-
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        const responseCopy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseCopy));
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
-});
-
-// Sincronização em background
-self.addEventListener('sync', event => {
-  if (event.tag === 'background-sync') {
-    event.waitUntil(doBackgroundSync());
-  }
-});
-
-// Função de sincronização em background
-function doBackgroundSync() {
-  console.log('🔄 Sincronização em background executada');
-}
-
-// Notificações push (opcional)
-self.addEventListener('push', event => {
-  const options = {
-    body: event.data ? event.data.text() : 'Nova notificação do Controle de Gastos',
-    icon: './icon-192.png',
-    badge: './icon-192.png',
-    vibrate: [200, 100, 200],
-    data: {
-      dateOfArrival: Date.now(),
-      primaryKey: 1
-    },
-    actions: [
-      {
-        action: 'explore',
-        title: 'Ver Detalhes'
-      },
-      {
-        action: 'close',
-        title: 'Fechar'
-      }
-    ]
-  };
-
-  event.waitUntil(
-    self.registration.showNotification('Controle de Gastos', options)
-  );
-});
-
-// Clique em notificação
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-
-  if (event.action === 'explore') {
-    event.waitUntil(clients.openWindow('./'));
-  } else if (event.action === 'close') {
-    // só fecha
-  } else {
-    event.waitUntil(clients.openWindow('./'));
-  }
+// Versioned, integrity-checked static cache. No deletion or forced activation.
+const VERSION="controle-gastos-total4-online-78becf4da97f3ba3dce7244399d11c7377d8ee84d167213c8ad759cd75544e84", ASSETS=[{"file":"favicon.png","sha256":"32e2ac2ddae41289c7781423c3ae56a96c5085c4f1b71ecc360514482ab79105"},{"file":"icon-192.png","sha256":"46cd8fd9c56fe6d69389c8ba22a903f537e622eceba74d2a2040e226400c447c"},{"file":"icon-512.png","sha256":"66bde86d0a5492d6e1d32dcf77c0fcf8fbb201a2ad0025c3aeed66465f036aa5"},{"file":"index.html","sha256":"fd7aa47b50658c06dda6085d36ed6ac05fd4aa21e052c6bbaff87eb568a2e332"},{"file":"manifest.json","sha256":"216af749657a1b11f330bba6bd40d9c485c2f500d94463d3459e50d230c3418f"},{"file":"online-policy-4a81ecd338a0dab5.js","sha256":"4a81ecd338a0dab5cb80db3bc79a37b8833657dd11eca80b60e860c79573ae52"},{"file":"pwa-update-5f1eea3a90e760ec.js","sha256":"5f1eea3a90e760ec7a9b009e2647a3f8b2c57162db8932255e42bf6b539b70de"},{"file":"release.json","sha256":"7a7c03f75ab26cfaa406c9b63b5e3f989d2ea454b5956156bfa19bf909429b5f"},{"file":"runtime-34de64756bb044a9.js","sha256":"34de64756bb044a9aea7f18ea2750fee459b2c7de981ad675a9d287509722a48"},{"file":"safety-core-46c4889059e83028.js","sha256":"46c4889059e83028355357d38cfc9e6b47da54a62b4a483dd621b951fc800827"},{"file":"safety-final-6114bbb73976314a.js","sha256":"6114bbb73976314aeec5c7f400e12d48e9e289b8681e70ef63a79b0aaa06beab"},{"file":"safety-integration-80b72ca7c493af52.js","sha256":"80b72ca7c493af52c8441606ca9a4a56928aaba86a6fe53b13af3e9a89258ef5"},{"file":"script-ef386a3d973752cb.js","sha256":"ef386a3d973752cbb27708bb6db5a806f7f11b22144a7d0e02003a19b2e130bb"},{"file":"styles.css","sha256":"12b732a142d46c7b5464a3ca50e2a2862d668cfdbe25243435555d4ae8808f22"},{"file":"total-model-43b9dc34eb0a9431.js","sha256":"43b9dc34eb0a943157b60f66419ed03b4ed78d58ca7aa82e352bd5fd93b8e70e"},{"file":"total-ui-07d401e6274ec225.js","sha256":"07d401e6274ec225a38e3c19f6cff924d2fa7022c6a9cae7d891164f35a2aad2"},{"file":"vendor/chart.js","sha256":"fbc45926e6b46845a0f905552a0e0b1331049bff1115ecf94dbe0904d895e710"},{"file":"vendor/firebase-app.js","sha256":"273b741af11961339d182710b1c7bb33924181a1cd3c05b897be7712feb41629"},{"file":"vendor/firebase-auth.js","sha256":"1ece084575e3fdb00db1bf7ee32db65d18cb1df5a8d6e1e68e8da2b660c7e76e"},{"file":"vendor/firebase-firestore.js","sha256":"eed019bf1e09ec91e781eb34d50c54c40f137644c61bf958b99b7bd20accf90e"},{"file":"vendor/fontawesome.css","sha256":"8d321d88cb97fdedc3189506c25de9292c6e73a60ebaab496243346c6404480e"},{"file":"vendor/jspdf-autotable.js","sha256":"e3110cab56ebf44f0a9943ab90f3f92275a4afc3bb85b9797e57835a8378d280"},{"file":"vendor/jspdf.js","sha256":"98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"},{"file":"webfonts/fa-brands-400.ttf","sha256":"9e122861bc5f7d6190d580b22acc5b1c3f8cdba9f495593cccd3b47d2cbfa2fd"},{"file":"webfonts/fa-brands-400.woff2","sha256":"29bc44694c394921d1f00271128a2e4cd8293516216e24eac07a73fa821fc1f5"},{"file":"webfonts/fa-regular-400.ttf","sha256":"709034805d10429d24862ad685d561808328329debdbca4f70487b508320a3ff"},{"file":"webfonts/fa-regular-400.woff2","sha256":"fa79fc4f2559112ff3dd27cf5be216d9b5f88066ceef728264f5a3a1a195fc1e"},{"file":"webfonts/fa-solid-900.ttf","sha256":"1782156bfa2054db429277b42f143298a1ce03437c05e2779ca7875112b19d3c"},{"file":"webfonts/fa-solid-900.woff2","sha256":"1b099f88c06ed0869872561c157f0ec9cbe133a0939d9ece4ee1e1f54bd4683d"},{"file":"webfonts/fa-v4compatibility.ttf","sha256":"fde941c0964fab984f6af0697b3fec92e7df384eec9941babfd3e4cbbd6211c2"},{"file":"webfonts/fa-v4compatibility.woff2","sha256":"b3abfccce275536beaaeba990e900a0c08ed2fefbabf4a8bcbb2e2ffe3f2431f"}];
+const root=new URL('./',self.location.href);
+const hex=bytes=>Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
+self.addEventListener('install',event=>event.waitUntil((async()=>{
+ const cache=await caches.open(VERSION);
+ for(const asset of ASSETS){
+  const url=new URL(asset.file,root).href;
+  const response=await fetch(url,{cache:'no-store',redirect:'error'});
+  if(!response.ok)throw Error('STATIC_FETCH_FAILED');
+  if(hex(await crypto.subtle.digest('SHA-256',await response.clone().arrayBuffer()))!==asset.sha256)throw Error('STATIC_HASH_MISMATCH');
+  await cache.put(url,response);
+ }
+})()));
+self.addEventListener('message',event=>{if(event.data?.type==='GET_VERSION')event.ports[0]?.postMessage({version:VERSION});});
+self.addEventListener('fetch',event=>{
+ const url=new URL(event.request.url);
+ if(event.request.method!=='GET'||url.origin!==root.origin||!url.pathname.startsWith(root.pathname))return;
+ let name=url.pathname.slice(root.pathname.length)||'index.html';
+ if(!ASSETS.some(a=>a.file===name))return;
+ // Never fall back to network for a pinned asset: missing cache must fail closed.
+ event.respondWith(caches.open(VERSION).then(async cache=>(await cache.match(new URL(name,root).href))||new Response('Versão incompleta; atualização necessária',{status:503})));
 });

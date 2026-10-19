@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 
 <head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; frame-src https://gastosmensais-ccd84.firebaseapp.com; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://gastosmensais-ccd84.firebaseapp.com; object-src 'none'; base-uri 'self'">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle de Gastos - 50/30/20</title>
@@ -17,17 +18,17 @@
 
     <!-- Estilo -->
     <link rel="stylesheet" href="styles.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="./vendor/fontawesome.css" rel="stylesheet">
 
     <!-- Bibliotecas -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script src="./vendor/chart.js" integrity="sha256-+8RZJua0aEWg+QVVKg4LEzEEm/8RFez5Tb4JBNiV5xA=" crossorigin="anonymous"></script>
+    <script src="./vendor/jspdf.js" integrity="sha256-mMzxeqEMILsTAXYmGPzJtqs6Tn8mtgcdZNC0EVTfOHU=" crossorigin="anonymous"></script>
+    <script src="./vendor/jspdf-autotable.js" integrity="sha256-4xEMq1br9E8KmUOrkPP5InWkr8O7hbl5fleDWoN40oA=" crossorigin="anonymous"></script>
 
     <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+    <script src="./vendor/firebase-app.js" integrity="sha256-Jzt0GvEZYTOdGCcQsce7M5JBgaHNPAW4l753Ev60Fik=" crossorigin="anonymous"></script>
+    <script src="./vendor/firebase-firestore.js" integrity="sha256-7tAZvx4J7JHnges01QxUxA8TdkTGG/lYuZt70grM+Q4=" crossorigin="anonymous"></script>
+    <script src="./vendor/firebase-auth.js" integrity="sha256-Hs4IRXXj/bANsb9+4y22XRjLHfWo1uHmjo2itmDH524=" crossorigin="anonymous"></script>
 
     <script>
         window.addEventListener('load', function () {
@@ -44,12 +45,12 @@
                     console.warn('⚠️ jsPDF não carregado, tentando novamente...');
 
                     const script = document.createElement('script');
-                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+                    script.src = './vendor/jspdf.js';
                     script.onload = () => {
                         console.log('✅ jsPDF carregado na segunda tentativa');
 
                         const pluginScript = document.createElement('script');
-                        pluginScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js';
+                        pluginScript.src = './vendor/jspdf-autotable.js';
                         pluginScript.onload = () => console.log('✅ Plugin autotable carregado');
                         document.head.appendChild(pluginScript);
                     };
@@ -1018,7 +1019,15 @@
         </button>
     </div>
 
-    <script src="script.js"></script>
+    <script src="runtime-34de64756bb044a9.js" integrity="sha256-NN5kdWuwRKmup/GOonUP7kWbLH3pga1nWp0odQlyKkg=" crossorigin="anonymous"></script>
+<script src="safety-core-46c4889059e83028.js" integrity="sha256-RsSIkFnoMCg1U1fTjPyea0faVKYrSkg91iG5UfyACCc=" crossorigin="anonymous"></script>
+    <script src="script-ef386a3d973752cb.js" integrity="sha256-7zhqPZc3Usuydwi7bbWoBvfxGyIUSn0OAgA6GbLhMLs=" crossorigin="anonymous"></script>
+    <script src="safety-integration-80b72ca7c493af52.js" integrity="sha256-gLcsp8STr1LIRBYGyppKVpKKq6hqb+U7E68+mokljvU=" crossorigin="anonymous"></script>
+<script src="safety-final-6114bbb73976314a.js" integrity="sha256-YRS7tzl2MUruxcf0AOEtSOniibhoHnDvY6ebCqoGvqs=" crossorigin="anonymous"></script>
+<script src="total-model-43b9dc34eb0a9431.js" integrity="sha256-Q7ncNOsKlDFXtg9mQZ7QO07XjVjKeqguNSvV/ZO45w4=" crossorigin="anonymous"></script>
+<script src="total-ui-07d401e6274ec225.js" integrity="sha256-B9QB5idOwiWjjjwZ9s/5JNL6cCLGqcrn2JEWTzWiqtI=" crossorigin="anonymous"></script>
+<script src="online-policy-4a81ecd338a0dab5.js" integrity="sha256-SoHs0zig2rXLgNs7x5o3uIM2V90R7KgLYOhgx5VzrlI=" crossorigin="anonymous"></script>
+<script src="pwa-update-5f1eea3a90e760ec.js" integrity="sha256-Xx7qOpDnYOx6mwCeJkej+LLFcWLbiTIlXkK/a1ObcN4=" crossorigin="anonymous"></script>
     <!-- Modal Calculadora -->
     <div id="calculator-modal" class="modal" style="display: none;">
         <div class="modal-content calculator-modal-content">
