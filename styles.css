@@ -8296,3 +8296,21 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 [data-hide-values="true"] #annual-summary .total-chart canvas{visibility:hidden}
 [data-hide-values="true"] #annual-summary .total-chart::after{content:"Valores ocultos";position:absolute;inset:40%;text-align:center}
 @media(max-width:600px){#annual-summary .filter-controls{align-items:stretch;flex-direction:column}#annual-summary .total-chart{height:260px}#annual-summary .total-cards{grid-template-columns:1fr 1fr}#annual-summary .total-cards strong{font-size:1.15rem}}
+
+/* Fix intrinsic widths rather than clipping horizontal content. */
+.auth-wrapper,.auth-box,.auth-loading,.loading-card{box-sizing:border-box;min-width:0;max-width:100%}
+.auth-wrapper{flex:0 1 450px}
+.auth-box,.loading-card{overflow-wrap:anywhere}
+.auth-box input{min-width:0;max-width:100%;box-sizing:border-box}
+#release-status,#online-policy-status,#pwa-version,#final-status,#protection-warning{min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal;box-sizing:border-box}
+#protection-status{display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:14px;margin:12px 0;border:1px solid var(--border-color);border-radius:14px;background:var(--card-bg);color:var(--text-primary);min-width:0}
+#protection-status p{margin:0;line-height:1.5;font-size:.9rem}
+#protection-warning:not([hidden]){padding:12px 18px;background:#352408;color:#fff0c4;border:1px solid #b68a34;line-height:1.5}
+#annual-summary .total-shortcuts button,#annual-summary #total-apply,#safety-final-panel button,#startup-error button{
+ background:#29203e;color:#f5efff;border:1px solid #a683ed;border-radius:12px;padding:10px 16px;font:inherit;font-weight:600;line-height:1.4;min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere;cursor:pointer;transition:background .15s,border-color .15s}
+#annual-summary .total-shortcuts button:hover,#annual-summary #total-apply:hover,#safety-final-panel button:hover{background:#45266e;border-color:#c7a9ff}
+#annual-summary button[aria-pressed="true"],#annual-summary #total-apply{background:#6430ba;color:#fff}
+#annual-summary .total-shortcuts button:focus-visible,#annual-summary #total-apply:focus-visible,#safety-final-panel button:focus-visible,#startup-error button:focus-visible{outline:3px solid #b48cff;outline-offset:3px}
+#annual-summary .total-shortcuts button:disabled,#safety-final-panel button:disabled{opacity:.55;cursor:not-allowed}
+#safety-final-panel{min-width:0;overflow-wrap:anywhere}
+@media(max-width:412px){.auth-wrapper{padding:14px}.auth-box{padding:24px 18px}.loading-card{padding:28px 18px}}
