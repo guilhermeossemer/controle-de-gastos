@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded',paint);begin();setTimeout(paint,210
             }
 
             setTimeout(() => {
-                if (typeof window.jsPDF === 'undefined') {
+                if (typeof window.jspdf?.jsPDF !== 'function' && typeof window.jsPDF !== 'function') {
                     console.warn('⚠️ jsPDF não carregado, tentando novamente...');
 
                     const script = document.createElement('script');
@@ -1033,9 +1033,9 @@ document.addEventListener('DOMContentLoaded',paint);begin();setTimeout(paint,210
         </button>
     </div>
 
-    <script src="runtime-1324fbe371df9a49.js" integrity="sha256-EyT743Hfmknd7P3UaGyXZB99KXh7LiHH4RMvMlPBHxo=" crossorigin="anonymous" defer></script>
-<script src="durable-journal-f787735a36c267f4.js" integrity="sha256-94dzWjbCZ/QdcfQFvalb6bSR5x0v14etVgp0I/eBiVw=" crossorigin="anonymous" defer></script>
-<script src="safety-core-e1153ff040cffdf7.js" integrity="sha256-4RU/8EDP/fc0Q3CQTHhM19FSDT8MVHlcQCRc0r3C0ac=" crossorigin="anonymous" defer></script>
+    <script src="runtime-f4433cceaf5f56e3.js" integrity="sha256-9EM8zq9fVuNgjV6PuzuaseLycv2DuzBjG5yIByTfymc=" crossorigin="anonymous" defer></script>
+<script src="durable-journal-9f7bac7719cf7d7c.js" integrity="sha256-n3usdxnPfXykCGNa7p4RfVDXIJfWm41g+0VVOe4bFaE=" crossorigin="anonymous" defer></script>
+<script src="safety-core-44a7731c11288588.js" integrity="sha256-RKdzHBEohYgFldr8gRU5H6L8JYSTMvdTDpDwWpw8KWc=" crossorigin="anonymous" defer></script>
     <script src="script-4fd3a769fa981705.js" integrity="sha256-T9OnafqYFwVG2eTAa1bpzH6ezb5jg7wu6LHeenTwHCw=" crossorigin="anonymous" defer></script>
     <script src="safety-integration-8d2432799b5e980e.js" integrity="sha256-jSQyeZtemA5gtELQxdF5NEATMxsppROSvaK4oxI9BO0=" crossorigin="anonymous" defer></script>
 <script src="safety-final-7c7f06f307c6e044.js" integrity="sha256-fH8G8wfG4EQUgEoFtp0lB80eAd1QnCErqHICQzi+hBA=" crossorigin="anonymous" defer></script>
