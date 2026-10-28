@@ -8314,3 +8314,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 #annual-summary .total-shortcuts button:disabled,#safety-final-panel button:disabled{opacity:.55;cursor:not-allowed}
 #safety-final-panel{min-width:0;overflow-wrap:anywhere}
 @media(max-width:412px){.auth-wrapper{padding:14px}.auth-box{padding:24px 18px}.loading-card{padding:28px 18px}}
+
+/* Total lists contain a table followed by controls, not cards in columns. */
+#annual-summary #annual-credit-list,
+#annual-summary #annual-expenses-list{display:block;min-width:0}
+#annual-summary [data-total-expand]{align-self:flex-start;flex:0 0 auto;height:auto}
